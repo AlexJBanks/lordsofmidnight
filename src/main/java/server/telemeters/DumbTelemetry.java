@@ -1,6 +1,8 @@
 package server.telemeters;
 
+import java.util.HashSet;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import main.Client;
 import objects.Entity;
@@ -13,7 +15,8 @@ import utils.enums.Direction;
 public class DumbTelemetry extends Telemetry {
 
   private BlockingQueue<String> inputs;
-  private Queue<Input> clientQueue;
+	private Queue<Set<String>> expectedQueue;
+	private Queue<Set<String>> actualQueue;
   //private GameLoop inputProcessor;
 
   // dumb telemetry is like telemetry but it relies on information from the server to set it's
@@ -40,6 +43,7 @@ public class DumbTelemetry extends Telemetry {
   public void startGame() {
     System.out.println("Started dumb telemetry");
     final long DELAY = (long) Math.pow(10, 7);
+	  final long CONSISTENCY_DELAY = (long) Math.pow(10, 8);
     inputProcessor =
         new GameLoop(DELAY) {
           @Override
@@ -49,13 +53,25 @@ public class DumbTelemetry extends Telemetry {
           }
         };
     inputProcessor.start();
+
+	  new GameLoop(CONSISTENCY_DELAY) {
+		  @Override
+		  public void handle() {
+			  checkConsistency();
+		  }
+	  }; // .start();
   }
 
+	private void checkConsistency() {
+	}
+
   void processInputs() {
+	  Set<String> inputBatch = new HashSet<>();
     while (!inputs.isEmpty()) {
       System.out.println("Dumb HostTelemetry received: " + inputs.peek());
       System.out.println(inputs.peek().substring(0, 4));
       String input = inputs.poll();
+	    inputBatch.add(input);
 
       switch (input.substring(0, 4)) { // looks at first 4 characters
         case "POS1":
@@ -71,6 +87,7 @@ public class DumbTelemetry extends Telemetry {
           throw new IllegalArgumentException();
       }
     }
+	  actualQueue.add(inputBatch);
   }
 
   @Override
