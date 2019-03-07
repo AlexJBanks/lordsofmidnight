@@ -3,6 +3,7 @@ package server.telemeters;
 import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import main.Client;
 import objects.Entity;
@@ -16,9 +17,9 @@ import utils.enums.PowerUp;
 public class DumbTelemetry extends Telemetry {
 
   private BlockingQueue<String> inputs;
-	private Queue<Set<String>> expectedQueue;
-	private Queue<Set<String>> actualQueue;
-  //private GameLoop inputProcessor;
+  private Queue<Set<String>> expectedQueue;
+  private Queue<Set<String>> actualQueue;
+  // private GameLoop inputProcessor;
 
   // dumb telemetry is like telemetry but it relies on information from the server to set it's
   // entites
@@ -27,6 +28,8 @@ public class DumbTelemetry extends Telemetry {
   public DumbTelemetry(Queue<String> inputQueue, Client client) {
     super(client);
     inputs = (BlockingQueue<String>) inputQueue;
+    expectedQueue = new ArrayBlockingQueue<>(10);
+    actualQueue = new ArrayBlockingQueue<>(10);
     initialise();
     //    startGame();
   }
@@ -44,7 +47,7 @@ public class DumbTelemetry extends Telemetry {
   public void startGame() {
     System.out.println("Started dumb telemetry");
     final long DELAY = (long) Math.pow(10, 7);
-	  final long CONSISTENCY_DELAY = (long) Math.pow(10, 8);
+    final long CONSISTENCY_DELAY = (long) Math.pow(10, 8);
     inputProcessor =
         new GameLoop(DELAY) {
           @Override
@@ -55,24 +58,24 @@ public class DumbTelemetry extends Telemetry {
         };
     inputProcessor.start();
 
-	  new GameLoop(CONSISTENCY_DELAY) {
-		  @Override
-		  public void handle() {
-			  checkConsistency();
-		  }
-	  }; // .start();
+    new GameLoop(CONSISTENCY_DELAY) {
+      @Override
+      public void handle() {
+        checkConsistency();
+      }
+    }; // .start();
   }
 
-	private void checkConsistency() {
-	}
+  private void checkConsistency() {
+  }
 
   void processInputs() {
-	  Set<String> inputBatch = new HashSet<>();
+    Set<String> inputBatch = new HashSet<>();
     while (!inputs.isEmpty()) {
       System.out.println("Dumb HostTelemetry received: " + inputs.peek());
       System.out.println(inputs.peek().substring(0, 4));
       String input = inputs.poll();
-	    inputBatch.add(input);
+      inputBatch.add(input);
 
       switch (input.substring(0, 4)) { // looks at first 4 characters
         case "POS1":
@@ -82,11 +85,11 @@ public class DumbTelemetry extends Telemetry {
           setEntityPositions(input.substring(4));
           break;
         case "POW1":
-        	activatePowerup(input.substring(4));
-        	break;
+          activatePowerup(input.substring(4));
+          break;
         case "SCOR":
           setScore(input.substring(5));
-        	break;
+          break;
         case NetworkUtility.STOP_CODE:
           stopGame();
           break;
@@ -94,7 +97,7 @@ public class DumbTelemetry extends Telemetry {
           throw new IllegalArgumentException();
       }
     }
-	  actualQueue.add(inputBatch);
+    actualQueue.add(inputBatch);
   }
 
   @Override
@@ -113,8 +116,8 @@ public class DumbTelemetry extends Telemetry {
   private void setEntityPositions(String s) {
     String[] positions = s.split("\\|");
     int mipID = Integer.parseInt(positions[positions.length - 1]);
-    for(Entity ent: agents){
-      if(ent.getClientId() == mipID){
+    for (Entity ent : agents) {
+      if (ent.getClientId() == mipID) {
         ent.setMipsman(true);
       } else {
         ent.setMipsman(false);
@@ -148,21 +151,20 @@ public class DumbTelemetry extends Telemetry {
     agents[id].setLocation(new Point(x, y));
     agents[id].setDirection(input.getMove());
     int MIPID = Integer.parseInt(ls[3]);
-    for(Entity ent: agents){
-      if(ent.getClientId() == MIPID){
+    for (Entity ent : agents) {
+      if (ent.getClientId() == MIPID) {
         ent.setMipsman(true);
       } else {
         ent.setMipsman(false);
       }
     }
-
   }
   // takes a packet string as defined in
   // NetworkUtility.makeScorePacket(Entity[])
-  //without the starting SCORE| string
-  private void setScore(String scores){
+  // without the starting SCORE| string
+  private void setScore(String scores) {
     String[] ls = scores.split("\\|");
-    for (int i=0; i<ls.length; i++){
+    for (int i = 0; i < ls.length; i++) {
       int score = Integer.parseInt(ls[i]);
       agents[i].setScore(score);
     }
@@ -172,26 +174,24 @@ public class DumbTelemetry extends Telemetry {
   // NetworkUtility.makePowerUPPacket(Input, Point)
   // without the starting POW1 code
   private void activatePowerup(String s) {
-	    System.out.println("Powerup String to handle: " + s);
-	    String[] ls = s.split("\\|");
+    System.out.println("Powerup String to handle: " + s);
+    String[] ls = s.split("\\|");
 
-	    int id 	 = Integer.parseInt(ls[0]);
-	    int powerint = Integer.parseInt(ls[1]);
-	    double x = Double.valueOf(ls[2]);
-	    double y = Double.valueOf(ls[3]);
-	    System.out.println("New PowerUp activation!! : " + powerint );
-	    System.out.println("X: " + x);
-	    System.out.println("Y: " + y);
-	    System.out.println("ID: " + id);
-	    agents[id].setLocation(new Point(x, y));
-	    PowerUp powerup = PowerUp.fromInt(powerint);
-    //TODO nullpointer when powerup tries to calculate location, one for @alex & @matty
+    int id = Integer.parseInt(ls[0]);
+    int powerint = Integer.parseInt(ls[1]);
+    double x = Double.valueOf(ls[2]);
+    double y = Double.valueOf(ls[3]);
+    System.out.println("New PowerUp activation!! : " + powerint);
+    System.out.println("X: " + x);
+    System.out.println("Y: " + y);
+    System.out.println("ID: " + id);
+    agents[id].setLocation(new Point(x, y));
+    PowerUp powerup = PowerUp.fromInt(powerint);
+    // TODO nullpointer when powerup tries to calculate location, one for @alex & @matty
 
     //   powerup.use(agents[id], activePowerUps);
-	  }
+  }
 
-  
-  
   public void startAI() {
     // haha trick this does nothing.
     // shouldn't actually be called from client if this object exists
