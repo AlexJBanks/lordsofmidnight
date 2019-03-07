@@ -210,7 +210,7 @@ public class NetworkUtility {
       int entityID, int itemID, int powerup, int score, Point position) {
     return "COL1"
         + entityID
-        + itemID
+        + itemID //item doesn't have an id????
         + powerup
         + score
         + coordFormat.format(position.getX())

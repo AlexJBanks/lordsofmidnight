@@ -1,6 +1,7 @@
 package server.telemeters;
 
 import static server.NetworkUtility.makeEntitiyMovementPacket;
+import static server.NetworkUtility.makeEntityItemCollisionPacket;
 import static server.NetworkUtility.makePacGhoulCollisionPacket;
 
 import java.util.ArrayList;
@@ -83,7 +84,7 @@ public abstract class Telemetry {
     agents = new Entity[AGENT_COUNT];
     switch (AGENT_COUNT) {
       default: {
-        for (int i = AGENT_COUNT-1; i>=5; i--) {
+        for (int i = AGENT_COUNT - 1; i >= 5; i--) {
           agents[i] = new Entity(false, i, new Point(1.5, 1.5));
         }
       }
@@ -125,7 +126,7 @@ public abstract class Telemetry {
    *
    * @param agents array of entities in current state
    * @author Alex Banks, Matthew Jones
-   * @see this#detectEntityCollision(Entity, Entity, ResourceLoader)
+   * @see this#detectEntityCollision(Entity, Entity, ResourceLoader, Set)
    */
   static Set<String> processPhysics(
       Entity[] agents,
@@ -143,10 +144,12 @@ public abstract class Telemetry {
         Point faceLocation = agents[i].getFaceLocation();
 
         if (m.isWall(faceLocation)) {
-	        //System.out.println("~Player" + i + " drove into a wall");
+          // System.out.println("~Player" + i + " drove into a wall");
           agents[i].setLocation(prevLocation.centralise());
           agents[i].setDirection(null);
-          physicsBatch.add(makeEntitiyMovementPacket(new Input(i, null), prevLocation, i));
+          physicsBatch.add(
+              makeEntitiyMovementPacket(
+                  new Input(i, null), prevLocation, i)); // TODO clarify which 'client ID'
         }
       }
     }
@@ -166,7 +169,7 @@ public abstract class Telemetry {
       }
     }
 
-    pelletCollision(agents, pellets);
+    pelletCollision(agents, pellets, physicsBatch);
     for (Pellet p : pellets.values()) {
       p.incrementRespawn();
     }
@@ -202,12 +205,12 @@ public abstract class Telemetry {
    * @param ghoul Entity currently running as ghoul
    * @author Alex Banks, Matthew Jones
    */
-  private static Set<String> detectEntityCollision(
+  private static void detectEntityCollision(
       Entity mipsman, Entity ghoul, ResourceLoader resourceLoader, Set<String> physBatch) {
     Point mipsmanCenter = mipsman.getLocation();
     Point ghoulFace = ghoul.getFaceLocation();
 
-    if (mipsmanCenter.inRange(ghoulFace)) { //check temporary invincibility here
+    if (mipsmanCenter.inRange(ghoulFace)) { // check temporary invincibility here
       client.collisionDetected(ghoul);
       mipsman.setMipsman(false);
       ghoul.setMipsman(true);
@@ -216,14 +219,15 @@ public abstract class Telemetry {
       mipsman.updateImages(resourceLoader);
       ghoul.updateImages(resourceLoader);
 
-      physBatch.add(makePacGhoulCollisionPacket(ghoul.getClientId(), mipsman.getClientId(),
-          ghoul.getLocation()));
+      physBatch.add(
+          makePacGhoulCollisionPacket(
+              ghoul.getClientId(),
+              mipsman.getClientId(),
+              ghoul.getLocation())); // TODO clarify which point needed
 
       // System.out.println("~Ghoul" + ghoul.getClientId() + " captured Mipsman" +
       // mipsman.getClientId());
     }
-
-    return physBatch;
   }
 
   /**
@@ -231,16 +235,23 @@ public abstract class Telemetry {
    *
    * @param agents The entities
    * @param pellets The pellets
+   * @param physBatch
    * @author Matthew Jones
    */
-  private static void pelletCollision(Entity[] agents, HashMap<String, Pellet> pellets) {
+  private static void pelletCollision(
+      Entity[] agents, HashMap<String, Pellet> pellets, Set<String> physBatch) {
     for (Entity agent : agents) {
       Point p = agent.getLocation();
       int x = (int) p.getX();
       int y = (int) p.getY();
       Pellet pellet = pellets.get(x + "," + y);
       if (pellet != null) {
-        pellet.interact(agent);
+        if (pellet.interact(agent)) {
+          physBatch.add(
+              makeEntityItemCollisionPacket(
+                  agent.getClientId(), -1, -1, agent.getScore(), agent.getLocation()));
+          //TODO itemID and powerUp need reviewing
+        }
       }
     }
   }

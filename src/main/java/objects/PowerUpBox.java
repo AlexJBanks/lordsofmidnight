@@ -48,12 +48,13 @@ public class PowerUpBox extends Pellet {
   }
 
   @Override
-  public void interact(Entity entity) {
+  public boolean interact(Entity entity) {
     if (!active) {
-      return;
+      return false;
     }
     PowerUp newPowerUp = getPowerUp();
     entity.giveItem(newPowerUp);
     this.setActive(false);
+    return true;
   }
 }
