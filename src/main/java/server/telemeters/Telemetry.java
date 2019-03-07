@@ -151,10 +151,10 @@ public abstract class Telemetry {
         if (m.isWall(faceLocation)) {
           // System.out.println("~Player" + i + " drove into a wall");
           agents[i].setLocation(prevLocation.centralise());
-          agents[i].setDirection(null);
+          agents[i].setDirection(Direction.STOP);
           physicsBatch.add(
               makeEntitiyMovementPacket(
-                  new Input(i, null), prevLocation, i)); // TODO clarify which 'client ID'
+                  new Input(i, Direction.STOP), prevLocation, i)); // TODO clarify which 'client ID'
         }
       }
     }
