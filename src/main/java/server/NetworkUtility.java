@@ -114,7 +114,7 @@ public class NetworkUtility {
    * @return The string packet.
    */
   public static String makeEntitiyPositionPacket(
-      int entityID, Direction direction, Point2D.Double position) {
+      int entityID, Direction direction, Point position) {
     return "POS0"
         + entityID
         + direction.toInt()
@@ -182,13 +182,13 @@ public class NetworkUtility {
   /**
    * Makes the packet for when there is a collision between Pac man and a ghoul
    *
-   * @param pacmanID Entity ID of pac man
-   * @param ghoulID Entity ID of the ghoul
+   * @param pacmanID Entity ID of NEW pac man
+   * @param ghoulID Entity ID of NEW ghoul
    * @param position Position that the collision occurred
    * @return The packet representing the collision
    */
   public static String makePacGhoulCollisionPacket(
-      int pacmanID, int ghoulID, Point2D.Double position) {
+      int pacmanID, int ghoulID, Point position) {
     return "COL0"
         + pacmanID
         + ghoulID
@@ -207,7 +207,7 @@ public class NetworkUtility {
    * @return The String representing this packet.
    */
   public static String makeEntityItemCollisionPacket(
-      int entityID, int itemID, int powerup, int score, Point2D.Double position) {
+      int entityID, int itemID, int powerup, int score, Point position) {
     return "COL1"
         + entityID
         + itemID

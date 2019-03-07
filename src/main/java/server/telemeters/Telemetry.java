@@ -1,8 +1,13 @@
 package server.telemeters;
 
+import static server.NetworkUtility.makeEntitiyMovementPacket;
+import static server.NetworkUtility.makePacGhoulCollisionPacket;
+
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
 import main.Client;
 import objects.Entity;
 import objects.Pellet;
@@ -122,12 +127,14 @@ public abstract class Telemetry {
    * @author Alex Banks, Matthew Jones
    * @see this#detectEntityCollision(Entity, Entity, ResourceLoader)
    */
-  static void processPhysics(
+  static Set<String> processPhysics(
       Entity[] agents,
       Map m,
       ResourceLoader resourceLoader,
       HashMap<String, Pellet> pellets,
       ArrayList<PowerUp> activePowerUps) {
+
+    Set<String> physicsBatch = new HashSet<>();
 
     for (int i = 0; i < AGENT_COUNT; i++) {
       if (agents[i].getDirection() != null) {
@@ -139,6 +146,7 @@ public abstract class Telemetry {
 	        //System.out.println("~Player" + i + " drove into a wall");
           agents[i].setLocation(prevLocation.centralise());
           agents[i].setDirection(null);
+          physicsBatch.add(makeEntitiyMovementPacket(new Input(i, null), prevLocation, i));
         }
       }
     }
@@ -149,11 +157,11 @@ public abstract class Telemetry {
       for (int j = (i + 1); j < AGENT_COUNT; j++) {
 
         if (agents[i].isMipsman() && !agents[j].isMipsman()) {
-          detectEntityCollision(agents[i], agents[j], resourceLoader);
+          detectEntityCollision(agents[i], agents[j], resourceLoader, physicsBatch);
         }
 
         if (agents[j].isMipsman() && !agents[i].isMipsman()) {
-          detectEntityCollision(agents[j], agents[i], resourceLoader);
+          detectEntityCollision(agents[j], agents[i], resourceLoader, physicsBatch);
         }
       }
     }
@@ -183,6 +191,8 @@ public abstract class Telemetry {
       System.out.println("Player " + winner + " won the game");
       System.out.println("Player " + winner + " won the game");
     }
+
+    return physicsBatch;
   }
 
   /**
@@ -192,8 +202,8 @@ public abstract class Telemetry {
    * @param ghoul Entity currently running as ghoul
    * @author Alex Banks, Matthew Jones
    */
-  private static void detectEntityCollision(
-      Entity mipsman, Entity ghoul, ResourceLoader resourceLoader) {
+  private static Set<String> detectEntityCollision(
+      Entity mipsman, Entity ghoul, ResourceLoader resourceLoader, Set<String> physBatch) {
     Point mipsmanCenter = mipsman.getLocation();
     Point ghoulFace = ghoul.getFaceLocation();
 
@@ -206,9 +216,14 @@ public abstract class Telemetry {
       mipsman.updateImages(resourceLoader);
       ghoul.updateImages(resourceLoader);
 
+      physBatch.add(makePacGhoulCollisionPacket(ghoul.getClientId(), mipsman.getClientId(),
+          ghoul.getLocation()));
+
       // System.out.println("~Ghoul" + ghoul.getClientId() + " captured Mipsman" +
       // mipsman.getClientId());
     }
+
+    return physBatch;
   }
 
   /**
