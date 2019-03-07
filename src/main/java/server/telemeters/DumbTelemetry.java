@@ -159,14 +159,19 @@ public class DumbTelemetry extends Telemetry {
       }
     }
   }
+
   // takes a packet string as defined in
   // NetworkUtility.makeScorePacket(Entity[])
   // without the starting SCOR| string
   private void setScore(String scores) {
-    String[] ls = scores.split("\\|");
-    for (int i = 0; i < ls.length; i++) {
-      int score = Integer.parseInt(ls[i]);
-      agents[i].setScore(score);
+    try {
+      String[] ls = scores.split("\\|");
+      for (int i = 0; i < ls.length; i++) {
+        int score = Integer.parseInt(ls[i]);
+        agents[i].setScore(score);
+      }
+    } catch (NumberFormatException e) {
+      System.out.println("ERROR: INVALID SCORE");
     }
   }
 
@@ -177,23 +182,18 @@ public class DumbTelemetry extends Telemetry {
     System.out.println("Powerup String to handle: " + s);
     String[] ls = s.split("\\|");
 
-    int id 	 = Integer.parseInt(ls[0]);
+    int id = Integer.parseInt(ls[0]);
     int powerint = Integer.parseInt(ls[1]);
-	  double x = Double.valueOf(ls[2]);
-	  double y = Double.valueOf(ls[3]);
-	  System.out.println("New PowerUp activation!! : " + powerint );
-	  System.out.println("X: " + x);
-	  System.out.println("Y: " + y);
-	  System.out.println("ID: " + id);
+    double x = Double.valueOf(ls[2]);
+    double y = Double.valueOf(ls[3]);
+
     agents[id].setLocation(new Point(x, y, map));
-	  PowerUp powerup = PowerUp.fromInt(powerint);
-    //TODO nullpointer when powerup tries to calculate location, one for @alex & @matty
+    PowerUp powerup = PowerUp.fromInt(powerint);
+    // TODO nullpointer when powerup tries to calculate location, one for @alex & @matty
 
     //   powerup.use(agents[id], activePowerUps);
   }
 
-  
-  
   public void startAI() {
     // haha trick this does nothing.
     // shouldn't actually be called from client if this object exists
