@@ -11,8 +11,9 @@ import utils.Point;
  * @author Matthew Jones
  */
 public enum PowerUp {
-  WEB(20), SPEED(200), BLUESHELL(20), INVINCIBLE(200);
+  WEB(20, "web"), SPEED(200, "speed"), BLUESHELL(20, "blueshell"), INVINCIBLE(200, "invincible");
 
+  private final String NAME;
   private final int EFFECTTIME;
   private Image image;
   private Entity effected;
@@ -25,9 +26,10 @@ public enum PowerUp {
     return onMap;
   }
 
-  PowerUp(int effectTime) {
-    EFFECTTIME = effectTime;
-    location = null;
+  PowerUp(int effectTime, String name) {
+    this.EFFECTTIME = effectTime;
+    this.NAME = name;
+    this.location = null;
   }
 
   public Point getLocation() {
@@ -112,4 +114,52 @@ public enum PowerUp {
     }
     return false;
   }
+
+  /**
+   * Used to communicate powerups to clients
+   *
+   * @return the int corresponding to the powerup's enum
+   */
+  public int toInt() {
+	  // TODO Auto-generated method stub
+	switch (this) {
+	case WEB:
+      return 0;
+	case SPEED:
+	  return 1;
+	case BLUESHELL:
+	  return 2;
+	case INVINCIBLE:
+	  return 3;
+	}
+	return -1;
+  }
+
+  /**
+   * Used to communicate powerups to clients
+   *
+   * @return the PowerUp corresponding to the int provided
+   */
+  public static PowerUp fromInt(int n) {
+	  switch (n) {
+	    case 0:
+	      return WEB;
+	    case 1:
+	      return SPEED;
+	    case 2:
+	      return BLUESHELL;
+	    case 3:
+	      return INVINCIBLE;
+	  }
+	  return null;
+	}
+
+  @Override
+  public String toString() {
+    return this.NAME;
+  }
 }
+
+
+
+
