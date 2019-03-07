@@ -74,7 +74,7 @@ public class Pellet implements Renderable {
     if (isTrap) {
       trap.trigger(entity, activePowerUps);
       isTrap = false;
-      return;
+      return true;
     }
     if (!active || !canUse(entity)) {
       return false;
