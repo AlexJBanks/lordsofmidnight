@@ -143,7 +143,7 @@ public abstract class Telemetry {
     Set<String> physicsBatch = new HashSet<>();
 
     for (int i = 0; i < AGENT_COUNT; i++) {
-      if (agents[i].getDirection() != null) {
+      if (agents[i].getDirection() != Direction.STOP) {
         Point prevLocation = agents[i].getLocation();
         agents[i].move();
         Point faceLocation = agents[i].getFaceLocation();

@@ -37,6 +37,7 @@ public enum Direction {
       return "STOP";
     }
   };
+
   private int id;
 
   Direction(int id) {
