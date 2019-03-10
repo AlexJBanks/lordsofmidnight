@@ -28,7 +28,7 @@ import utils.enums.PowerUp;
 public abstract class Telemetry {
 
   static final int AGENT_COUNT = 5;
-  static final int GAME_TIME = 30 * 100; // Number of seconds *100
+  static final int GAME_TIME = 150 * 100; // Number of seconds *100
 
   public static int getGameTimer() {
     return gameTimer;
@@ -178,11 +178,13 @@ public abstract class Telemetry {
     for (Pellet p : pellets.values()) {
       p.incrementRespawn();
     }
+    ArrayList<PowerUp> toRemove = new ArrayList<>();
     for (PowerUp p : activePowerUps) {
       if (p.incrementTime()) {
-        activePowerUps.remove(p);
+        toRemove.add(p);
       }
     }
+    activePowerUps.removeAll(toRemove);
     gameTimer--;
     if (gameTimer == 0) {
       System.out.println("GAME HAS ENDED ITS OVER");
@@ -250,7 +252,7 @@ public abstract class Telemetry {
       int y = (int) p.getY();
       Pellet pellet = pellets.get(x + "," + y);
       if (pellet != null) {
-        if (pellet.interact(agent, activePowerUps)) {
+        if (pellet.interact(agent, agents, activePowerUps)) {
           physBatch.add(
               makeEntityItemCollisionPacket(
                   agent.getClientId(), -1, -1, agent.getScore(), agent.getLocation()));

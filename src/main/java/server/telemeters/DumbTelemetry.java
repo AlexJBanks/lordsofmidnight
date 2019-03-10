@@ -88,7 +88,7 @@ public class DumbTelemetry extends Telemetry {
           activatePowerup(input.substring(4));
           break;
         case "SCOR":
-          setScore(input.substring(4));
+          setScore(input.substring(5));
           break;
         case NetworkUtility.STOP_CODE:
           stopGame();
