@@ -27,6 +27,7 @@ import utils.enums.PowerUp;
  */
 public abstract class Telemetry {
 
+
   static final int AGENT_COUNT = 5;
   static final int GAME_TIME = 150 * 100; // Number of seconds *100
 
@@ -164,11 +165,11 @@ public abstract class Telemetry {
     for (int i = 0; i < AGENT_COUNT; i++) {
       for (int j = (i + 1); j < AGENT_COUNT; j++) {
 
-        if (agents[i].isMipsman() && !agents[j].isMipsman()) {
+        if (agents[i].isMipsman() && !agents[j].isMipsman() && !agents[i].isInvincible()) {
           detectEntityCollision(agents[i], agents[j], resourceLoader, physicsBatch);
         }
 
-        if (agents[j].isMipsman() && !agents[i].isMipsman()) {
+        if (agents[j].isMipsman() && !agents[i].isMipsman() && !agents[j].isInvincible()) {
           detectEntityCollision(agents[j], agents[i], resourceLoader, physicsBatch);
         }
       }
@@ -264,5 +265,9 @@ public abstract class Telemetry {
 
   public GameLoop getInputProcessor() {
     return inputProcessor;
+  }
+
+  public ArrayList<PowerUp> getActivePowerUps() {
+    return activePowerUps;
   }
 }

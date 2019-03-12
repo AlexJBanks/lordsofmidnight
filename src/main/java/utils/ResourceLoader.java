@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.image.Image;
 import javax.imageio.ImageIO;
@@ -48,14 +49,14 @@ public class ResourceLoader {
   private BufferedImage inventory;
   private ArrayList<BufferedImage> powerUpIcons;
   private int inventoryColourID;
-  private ArrayList<BufferedImage> powerUps;
+  private HashMap<PowerUp, ArrayList<BufferedImage>> powerUps;
 
   /**
    * @param baseDir path to the resources folder
    */
   public ResourceLoader(String baseDir) {
     BASE_DIR = baseDir;
-    this.loadMap(DEFAULT_THEME);
+    this.loadMap("default");
     //this.loadMap("six_exits");
     this.init();
   }
@@ -274,7 +275,9 @@ public class ResourceLoader {
       resizeSpritesSmooth(pellets, ratio);
       resizeSpritesSmooth(powerUpBox, ratio);
       resizeSpritesSmooth(translucentPellets, ratio);
-      resizeSpritesSmooth(powerUps, ratio);
+      for (ArrayList<BufferedImage> powerUp : powerUps.values()) {
+        resizeSpritesSmooth(powerUp, ratio);
+      }
       resizeSpritesSmooth(mapTiles, ratio);
       mipMarker = resizeSpriteSmooth(mipMarker, ratio);
       clientMarker = resizeSpriteSmooth(clientMarker, ratio);
@@ -289,7 +292,9 @@ public class ResourceLoader {
       resizeSprites(pellets, ratio);
       resizeSprites(powerUpBox, ratio);
       resizeSprites(translucentPellets, ratio);
-      resizeSprites(powerUps, ratio);
+      for (ArrayList<BufferedImage> powerUp : powerUps.values()) {
+        resizeSprites(powerUp, ratio);
+      }
       resizeSprites(mapTiles, ratio);
       mipMarker = resizeSprite(mipMarker, ratio);
       clientMarker = resizeSprite(clientMarker, ratio);
@@ -464,13 +469,33 @@ public class ResourceLoader {
   }
 
   public void loadPowerUps(String theme) {
-    ArrayList<BufferedImage> powerUps = new ArrayList<>();
-    powerUps.add(loadImageFile("sprites/" + theme + "/powerups/", "web"));
+    HashMap<PowerUp, ArrayList<BufferedImage>> powerUps = new HashMap<>();
+
+    //add web powerup
+    powerUps.put(PowerUp.WEB,
+        splitSpriteSheet(39, 37, loadImageFile("sprites/" + theme + "/powerups/", "web")).get(0));
+
+    //add speedup powerup
+    BufferedImage speedAnimation = transparentizeSprite(
+        loadImageFile("sprites/" + theme + "/powerups/", "speed"));
+    powerUps.put(PowerUp.SPEED, splitSpriteSheet(39, 36, speedAnimation).get(0));
+
+    //add invincible powerup
+    BufferedImage invincibleAnimation = transparentizeSprite(
+        loadImageFile("sprites/" + theme + "/powerups/", "invincible"));
+    powerUps.put(PowerUp.INVINCIBLE, splitSpriteSheet(39, 36, invincibleAnimation).get(0));
+
     this.powerUps = powerUps;
   }
 
-  public ArrayList<Image> getPowerUps() {
-    return bufferedToJavaFxImage(powerUps);
+  public HashMap<PowerUp, ArrayList<Image>> getPowerUps() {
+    HashMap<PowerUp, ArrayList<Image>> convertedSprites = new HashMap<>();
+
+    for (PowerUp key : this.powerUps.keySet()) {
+      convertedSprites.put(key, bufferedToJavaFxImage(this.powerUps.get(key)));
+    }
+
+    return convertedSprites;
   }
 
   /**

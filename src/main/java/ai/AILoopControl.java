@@ -107,11 +107,11 @@ public class AILoopControl extends Thread {
         for (int i = 0; i < gameAgents.length; i++) {
             RouteFinder routeFinder;
             switch (i) {
-                case 0: {
+                case 1: {
                     routeFinder = new AStarRouteFinder(junctions, edges, map);
                     break;
                 }
-                case 1: {
+                case 0: {
                     routeFinder = new NextJunctionRouteFinder();
                     break;
                 }
@@ -124,7 +124,7 @@ public class AILoopControl extends Thread {
                     break;
                 }
                 case 4: {
-                    routeFinder = new MipsManRouteFinder();
+                    routeFinder = new MipsManRouteFinder(pellets, gameAgents);
                     break;
                 }
                 default: {
@@ -186,7 +186,7 @@ public class AILoopControl extends Thread {
                 Point currentGridLocation = currentLocation.getGridCoord();
                 if (currentLocation.isCentered()) {
                   boolean atLastCoord = atPreviousCoordinate(ent, currentGridLocation);
-                    if (ent.getDirection() == null
+                    if (!isMovementDirection(ent.getDirection())
                         || !Methods.validateDirection(ent.getDirection(), currentLocation, map) || (
                         junctions.contains(currentGridLocation) && !atLastCoord)) {
                       if (atLastCoord) {
@@ -251,6 +251,16 @@ public class AILoopControl extends Thread {
             return false;
         }
         return ent.getLastGridCoord().equals(currentLocation);
+    }
+
+    private boolean isMovementDirection(Direction d) {
+        switch (d) {
+            case RIGHT: return true;
+            case LEFT: return true;
+            case UP: return true;
+            case DOWN: return true;
+            default: return false;
+        }
     }
 
     private Direction confirmOrReplaceDirection(Direction oldDirection, Point currentLocation, Direction dir) {

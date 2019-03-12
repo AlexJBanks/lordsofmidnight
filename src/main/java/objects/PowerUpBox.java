@@ -134,6 +134,10 @@ public class PowerUpBox extends Pellet {
     return true;
   }
 
+  @Override
+  public boolean isPowerPellet() {
+    return true;
+  }
   private int getRank(Entity entity, Entity[] agents) {
     int score = entity.getScore();
     int rank = 0;

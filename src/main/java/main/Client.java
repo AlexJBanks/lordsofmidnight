@@ -9,7 +9,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
-import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -24,6 +23,7 @@ import server.ServerLobby;
 import server.telemeters.DumbTelemetry;
 import server.telemeters.HostTelemetry;
 import server.telemeters.Telemetry;
+import ui.GameSceneController;
 import ui.MenuController;
 import utils.Input;
 import utils.Map;
@@ -65,8 +65,10 @@ public class Client extends Application {
   private HashMap<String, Pellet> pellets;
   private int MIPID;
   private Canvas canvas = new Canvas();
-  private boolean colliding = false;
   private AnimationTimer inputRenderLoop;
+  private GameSceneController gameSceneController;
+  private Scene mainMenu;
+  private boolean gameStarted = false;
 
   public int getId() {
     return id;
@@ -77,17 +79,8 @@ public class Client extends Application {
     this.renderer.setClientID(id);
   }
 
-  public String[] getPlayerNames() {
-    return this.playerNames;
-  }
-
   public void setPlayerNames(String[] names) {
     this.playerNames = names;
-
-  }
-
-  public void setScreenRes(ScreenResolution s) {
-    this.screenRes = s;
   }
 
   public void setRenderingMode(RenderingMode rm) {
@@ -95,12 +88,7 @@ public class Client extends Application {
   }
 
   @Override
-  public void start(Stage primaryStage) throws Exception {
-    //        Dimension screenRes = Toolkit.getDefaultToolkit().getScreenSize();
-    //        xRes = screenRes.width;
-    //        yRes = screenRes.height;
-
-    int id = 0; // This will be changed if main joins a lobby, telemetry will give it new id
+  public void start(Stage primaryStage) {
     audioController = new AudioController();
     keyController = new KeyController();
     resourceLoader = new ResourceLoader("src/main/resources/");
@@ -108,24 +96,25 @@ public class Client extends Application {
     //    audioController.playMusic(Sounds.intro);
     menuController =
         new MenuController(audioController, primaryStage, this, resourceLoader);
-    StackPane root = (StackPane) menuController.createMainMenu();
-    root.getStylesheets().add(getClass().getResource("/ui/stylesheet.css").toExternalForm());
-    Scene scene = new Scene(root, xRes, yRes);
+    StackPane menuController = (StackPane) this.menuController.createMainMenu();
+    menuController.getStylesheets()
+        .add(getClass().getResource("/ui/stylesheet.css").toExternalForm());
+    mainMenu = new Scene(menuController, xRes, yRes);
     canvas = new Canvas(xRes, yRes);
-    Group gameRoot = new Group();
-    gameRoot.getChildren().add(canvas);
-    this.gameScene = new Scene(gameRoot);
+    this.gameSceneController = new GameSceneController(canvas, this);
+    this.gameScene = new Scene(gameSceneController.getGameRoot());
+    this.gameScene.getStylesheets()
+        .add(getClass().getResource("/ui/stylesheet.css").toExternalForm());
     GraphicsContext gc = canvas.getGraphicsContext2D();
     renderer = new Renderer(gc, xRes, yRes, resourceLoader);
-    primaryStage.setScene(scene);
+    primaryStage.setScene(mainMenu);
     primaryStage.setMinWidth(1366);
     primaryStage.setMinHeight(768);
     primaryStage
         .widthProperty()
         .addListener(
-            (obs, oldVal, newVal) -> {
-              menuController.scaleImages((double) newVal, (double) oldVal);
-            });
+            (obs, oldVal, newVal) -> this.menuController
+                .scaleImages((double) newVal, (double) oldVal));
 
     primaryStage.show();
     primaryStage.setOnCloseRequest(e -> System.exit(0));
@@ -133,6 +122,9 @@ public class Client extends Application {
     updateResolution(this.screenRes);
   }
 
+  /**
+   * Starts a single player game for the client
+   */
   public void startSinglePlayerGame() {
 
     singlePlayer = true;
@@ -147,6 +139,9 @@ public class Client extends Application {
     startGame();
   }
 
+  /**
+   * Creates a multiplayer lobby
+   */
   public void createMultiplayerLobby() {
     System.out.println("Created multiplayer lobby");
     isHost = true;
@@ -162,60 +157,57 @@ public class Client extends Application {
     }
   }
 
+  /**
+   * Allows a client to join a lobby
+   */
   public void joinMultiplayerLobby() {
     map = resourceLoader.getMap();
     isHost = false;
-    BlockingQueue<String> clientIn = new LinkedBlockingQueue<String>();
-    keypressQueue = new LinkedBlockingQueue<Input>();
+    BlockingQueue<String> clientIn = new LinkedBlockingQueue<>();
+    keypressQueue = new LinkedBlockingQueue<>();
     try {
-
       clientLobbySession = new ClientLobbySession(clientIn, keypressQueue, this, name);
       this.telemetry = new DumbTelemetry(clientIn, this);
       this.telemetry.setMipID(MIPID);
-      // waits for game to start
-//      while (!clientLobbySession.isGameStarted()) {
-//        try {
-//          Thread.sleep(250);
-//        } catch (InterruptedException e) {
-//          e.printStackTrace();
-//        }
-//      }
-//      this.primaryStage.setScene(gameScene);
-//      gameScene.setOnKeyPressed(keyController);
-//      startGame();
-
     } catch (IOException e) {
       e.printStackTrace();
     }
   }
 
+  /**
+   * Allows all clients to safely leave a lobby
+   */
   public void leaveLobby(){
-    if(isHost){
-      clientLobbySession.leaveLobby();
-      server.shutDown();
-      setId(0);
-      this.telemetry = null;
-//      this.clientLobbySession = null;
-      this.keypressQueue = null;
-      isHost = false;
-    }else{
-      clientLobbySession.leaveLobby();
-      setId(0);
-      this.telemetry = null;
-//      this.clientLobbySession = null;
-      this.keypressQueue = null;
-      isHost = false;
+    if (!gameStarted) {
+      if (isHost) {
+        clientLobbySession.leaveLobby();
+        server.shutDown();
+        setId(0);
+        this.telemetry = null;
+        this.keypressQueue = null;
+        isHost = false;
+      } else {
+        clientLobbySession.leaveLobby();
+        setId(0);
+        this.telemetry = null;
+        this.keypressQueue = null;
+        isHost = false;
+      }
     }
 
   }
 
+  /**
+   * Handles starting a game.
+   */
   public void startMultiplayerGame() {
+    gameStarted = true;
     menuController.endPlayerDiscovery();
     if (isHost) {
       System.out.println("Starting multiplayer for host");
-      BlockingQueue<Input> inputQueue = new LinkedBlockingQueue<Input>();
-      BlockingQueue<String> outputQueue = new LinkedBlockingQueue<String>();
-      ServerGameplayHandler s = server.gameStart(inputQueue, outputQueue);
+      BlockingQueue<Input> inputQueue = new LinkedBlockingQueue<>();
+      BlockingQueue<String> outputQueue = new LinkedBlockingQueue<>();
+      serverGameplayHandler = server.gameStart(inputQueue, outputQueue);
       map = resourceLoader.getMap();
       int playerCount = server.getPlayerCount();
       System.out.println("PLAYER COUNT IS: " + playerCount);
@@ -231,10 +223,19 @@ public class Client extends Application {
     }
   }
 
+  /**
+   * Sets the current map being used
+   *
+   * @param m the map to use
+   */
   public void setMap(Map m) {
     this.map = m;
   }
 
+  /**
+   * Updates the current screen resolution
+   * @param s the desired resolution
+   */
   public void updateResolution(ScreenResolution s) {
     this.screenRes = s;
     switch (s) {
@@ -263,6 +264,10 @@ public class Client extends Application {
     renderer.setResolution(xRes, yRes, this.renderingMode);
   }
 
+  /**
+   * Sets the name for the current client and checks that it contains letters
+   * @param n the name of the client
+   */
   public void setName(String n) {
     updateResolution(this.screenRes);
     if (n.matches(".*[a-zA-Z]+.*")) {
@@ -272,10 +277,17 @@ public class Client extends Application {
     }
   }
 
+  /**
+   * Sets the initial MIP ID
+   * @param id the initial ID
+   */
   public void setMIP(int id) {
     this.MIPID = id;
   }
 
+  /**
+   * Handles starting the game for all clients
+   */
   private void startGame() {
     updateResolution(this.screenRes);
     if (telemetry != null) {
@@ -294,7 +306,8 @@ public class Client extends Application {
       @Override
       public void handle(long now) {
         processInput();
-        renderer.render(map, agents, now, pellets, telemetry.getGameTimer() / 100);
+        renderer.render(map, agents, now, pellets, telemetry.getActivePowerUps(),
+            Telemetry.getGameTimer() / 100);
 
       }
     };
@@ -302,12 +315,30 @@ public class Client extends Application {
     this.telemetry.startGame();
     Methods.updateImages(agents, resourceLoader);
 
-    // TODO the following line fixes array out of bounds - need to find out why
     renderer.initMapTraversal(map);
     map = resourceLoader.getMap();
     this.primaryStage.setScene(gameScene);
-    // AnimationTimer started once game has started
+  }
 
+  /**
+   * Handles the closing down of the game session in single player and multiplayer
+   */
+  public void closeGame() {
+    gameScene.setOnKeyPressed(null);
+    this.telemetry.stopGame();
+    menuController.reset();
+    primaryStage.setScene(mainMenu);
+    if (singlePlayer) {
+      singlePlayer = false;
+      incomingQueue = null;
+    } else {
+      if (isHost) {
+        isHost = false;
+        server.shutDown();
+        serverGameplayHandler.close();
+      }
+      clientLobbySession.leaveLobby();
+    }
   }
 
   /**
@@ -315,8 +346,8 @@ public class Client extends Application {
    */
   private void processInput() {
     if (keyController.UseItem()) {
-     informServer(new Input(this.id, Direction.USE));
-     return;
+      informServer(new Input(this.id, Direction.USE));
+      return;
     }
     Direction input = keyController.getActiveKey();
     Direction current = agents[id].getDirection();
@@ -343,6 +374,10 @@ public class Client extends Application {
     }
   }
 
+  /**
+   * Sends the user key press to telemetry (via server in multiplayer)
+   * @param input the current keypress
+   */
   private void informServer(Input input) {
     if (singlePlayer) {
       incomingQueue.add(input);
@@ -355,16 +390,10 @@ public class Client extends Application {
     }
   }
 
-  // communicates to clients
-  private void stopMultiplayerGame() {
-    if (isHost) {
-      telemetry.stopGame();
-      server.gameStop();
-      // TODO render the end of game screen
-    }
-    // TODO add options in future for client to quit a game
-  }
-
+  /**
+   * Handles pausing the game loops for the MIPs man animation when there is a collision
+   * @param newMipsman the new MIPs man
+   */
   public void collisionDetected(Entity newMipsman) {
     inputRenderLoop.stop();
     telemetry.getInputProcessor().pause();
@@ -372,14 +401,26 @@ public class Client extends Application {
         telemetry.getInputProcessor());
   }
 
+  /**
+   * Gets the resource loader being used by the client
+   * @return the current resource loader instance
+   */
   public ResourceLoader getResourceLoader() {
     return this.resourceLoader;
   }
 
+  /**
+   * Gets all current agents
+   * @return the array of agents in the game
+   */
   public Entity[] getAgents() {
     return this.agents;
   }
 
+  /**
+   * Gets the map currently being used
+   * @return the map in use
+   */
   public Map getMap() {
     return this.map;
   }

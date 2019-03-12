@@ -115,5 +115,7 @@ public class Pellet implements Renderable {
     this.isTrap = true;
   }
 
-
+  public boolean isPowerPellet() {
+    return false;
+  }
 }
