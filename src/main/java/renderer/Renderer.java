@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.UUID;
 import javafx.animation.AnimationTimer;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
@@ -19,13 +20,14 @@ import javafx.scene.text.TextAlignment;
 import objects.Entity;
 import objects.Pellet;
 import objects.PowerUpBox;
+import objects.powerUps.PowerUp;
 import utils.GameLoop;
 import utils.Map;
 import utils.Point;
 import utils.ResourceLoader;
+import utils.Settings;
 import utils.UpDownIterator;
 import utils.enums.MapElement;
-import utils.enums.PowerUp;
 import utils.enums.RenderingMode;
 
 public class Renderer {
@@ -82,7 +84,7 @@ public class Renderer {
    * @param pellets Consumable objects
    */
   public void render(Map map, Entity[] entityArr, long now, HashMap<String, Pellet> pellets,
-      ArrayList<PowerUp> activePowerUps,
+      HashMap<UUID, PowerUp> activePowerUps,
       int gameTime) {
     if (clientEntity == null) {
       this.clientEntity = getClientEntity(new ArrayList<>(Arrays.asList(entityArr)));
@@ -158,7 +160,7 @@ public class Renderer {
   }
 
   public void renderGameOnly(Map map, Entity[] entityArr, long now,
-      HashMap<String, Pellet> pellets, ArrayList<PowerUp> activePowerUps) {
+      HashMap<String, Pellet> pellets, HashMap<UUID, PowerUp> activePowerUps) {
 
     int[][] rawMap = map.raw();
     ArrayList<Entity> entities = new ArrayList<>(Arrays.asList(entityArr));
@@ -173,13 +175,13 @@ public class Renderer {
     int x;
     int y;
 
-    HashMap<Entity, HashMap<PowerUp, PowerUp>> entityPowerUps = new HashMap<>();
+    HashMap<Entity, HashMap<utils.enums.PowerUp, PowerUp>> entityPowerUps = new HashMap<>();
     for (Entity e : entityArr) {
       entityPowerUps.put(e, new HashMap<>());
     }
     if (activePowerUps != null) {
-      for (PowerUp p : activePowerUps) {
-        entityPowerUps.get(p.getUser()).put(p, p);
+      for (PowerUp p : activePowerUps.values()) {
+        entityPowerUps.get(p.getUser()).put(p.getType(), p);
       }
     }
 
@@ -395,7 +397,8 @@ public class Renderer {
    * @param e entitiy to render
    * @param timeElapsed time since last frame to decide whether to move to next animation frame
    */
-  private void renderEntity(Entity e, HashMap<PowerUp, PowerUp> selfPowerUps, long timeElapsed) {
+  private void renderEntity(Entity e, HashMap<utils.enums.PowerUp, PowerUp> selfPowerUps,
+      long timeElapsed) {
     // choose correct animation
     ArrayList<Image> currentSprites = e.getImage();
     if (secondInNanoseconds / e.getAnimationSpeed() < e.getTimeSinceLastFrame()
@@ -431,23 +434,25 @@ public class Renderer {
     gc.drawImage(marker, coord.getX(), coord.getY());
   }
 
-  private void renderPowerUpEffects(Entity e, HashMap<PowerUp, PowerUp> selfPowerUps,
+  private void renderPowerUpEffects(Entity e, HashMap<utils.enums.PowerUp, PowerUp> selfPowerUps,
       Double rendCoord) {
     if (e.isSpeeding()) {
-      PowerUp speed = selfPowerUps.get(PowerUp.SPEED);
-      gc.drawImage(r.getPowerUps().get(PowerUp.SPEED)
-              .get(speed.getCurrentFrame() % r.getPowerUps().get(PowerUp.SPEED).size()),
-          rendCoord.getX(), rendCoord.getY());
+      PowerUp speed = selfPowerUps.get(utils.enums.PowerUp.SPEED);
+      ArrayList<Image> sprites = r.getPowerUps().get(utils.enums.PowerUp.SPEED);
+      gc.drawImage(sprites.get(speed.getCurrentFrame() % sprites.size()), rendCoord.getX(),
+          rendCoord.getY());
     }
     if (e.isInvincible()) {
-      PowerUp invincible = selfPowerUps.get(PowerUp.INVINCIBLE);
-      gc.drawImage(r.getPowerUps().get(PowerUp.INVINCIBLE)
-              .get(invincible.getCurrentFrame() % r.getPowerUps().get(PowerUp.INVINCIBLE).size()),
+      PowerUp invincible = selfPowerUps.get(utils.enums.PowerUp.INVINCIBLE);
+      gc.drawImage(r.getPowerUps().get(utils.enums.PowerUp.INVINCIBLE)
+              .get(invincible.getCurrentFrame() % r.getPowerUps().get(utils.enums.PowerUp.INVINCIBLE)
+                  .size()),
           rendCoord.getX(), rendCoord.getY());
     }
     //is the entity stunned?
     if (e.isStunned()) {
-      gc.drawImage(r.getPowerUps().get(PowerUp.WEB).get(0), rendCoord.getX(), rendCoord.getY());
+      gc.drawImage(r.getPowerUps().get(utils.enums.PowerUp.WEB).get(0), rendCoord.getX(),
+          rendCoord.getY());
     }
   }
 
@@ -598,20 +603,34 @@ public class Renderer {
     return new Point2D.Double((this.xResolution / (double) 2) - mapMidPointX, yResolution / 6);
   }
 
+
   /**
-   * sets new resolution for the renderer and re initialises assets with the new resolution
-   *
-   * @param x new x resolution
-   * @param y new y resolution
-   * @param mode scaling mode
+   * use to override settings given by the settings class
    */
-  public void setResolution(int x, int y, RenderingMode mode) {
-    r.setResolution(x, y, mode);
+  public void setResolution(int x, int y) {
+    r.refreshSettings(x, y, RenderingMode.SMOOTH_SCALING, Settings.getTheme());
     hudRender.setResolution(x, y);
     this.xResolution = x;
     this.yResolution = y;
     this.map = r.getMap();
     this.initMapTraversal(this.map);
+    this.tileSizeX = r.getMapTiles().get(0).getWidth();
+    this.tileSizeY = r.getMapTiles().get(0).getHeight();
     this.mapRenderingCorner = getMapRenderingCorner();
+    this.background = r.getBackground();
+    this.palette = r.getBackgroundPalette();
+  }
+
+
+  public void refreshSettings() {
+    r.refreshSettings();
+    hudRender.setResolution(Settings.getxResolution(), Settings.getyResolution());
+    this.xResolution = Settings.getxResolution();
+    this.yResolution = Settings.getyResolution();
+    this.map = r.getMap();
+    this.initMapTraversal(this.map);
+    this.mapRenderingCorner = getMapRenderingCorner();
+    this.background = r.getBackground();
+    this.palette = r.getBackgroundPalette();
   }
 }

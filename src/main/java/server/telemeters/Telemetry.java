@@ -9,10 +9,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 import main.Client;
 import objects.Entity;
 import objects.Pellet;
 import objects.PowerUpBox;
+import objects.powerUps.PowerUp;
 import utils.GameLoop;
 import utils.Input;
 import utils.Map;
@@ -20,7 +22,7 @@ import utils.Methods;
 import utils.Point;
 import utils.ResourceLoader;
 import utils.enums.Direction;
-import utils.enums.PowerUp;
+
 
 /**
  * Parent class for DumbTelemetry and HostTelemetry
@@ -52,7 +54,7 @@ public abstract class Telemetry {
     this.agents = client.getAgents();
   }
 
-  ArrayList<PowerUp> activePowerUps = new ArrayList<>();
+  HashMap<UUID, PowerUp> activePowerUps = new HashMap<>();
   // abstract methods
 
   abstract void startAI();
@@ -109,23 +111,6 @@ public abstract class Telemetry {
     Methods.updateImages(agents, resourceLoader);
   }
 
-  void initialisePellets() {
-    Random r = new Random();
-    pellets = new HashMap<>();
-    for (int i = 0; i < map.getMaxX(); i++) {
-      for (int j = 0; j < map.getMaxY(); j++) {
-        Point point = new Point(i + 0.5, j + 0.5);
-        if (!map.isWall(point)) {
-          Pellet pellet = r.nextInt(50) == 1 ? new PowerUpBox(point) : new Pellet(point);
-          pellet.updateImages(resourceLoader);
-          pellets.put(i + "," + j, pellet);
-        }
-      }
-    }
-  }
-
-  // physics engine
-
   /**
    * Static method for updating game state increments positions if valid, increments points, and
    * detects and treats entity collisions
@@ -139,7 +124,7 @@ public abstract class Telemetry {
       Map m,
       ResourceLoader resourceLoader,
       HashMap<String, Pellet> pellets,
-      ArrayList<PowerUp> activePowerUps) {
+      HashMap<UUID, PowerUp> activePowerUps) {
 
     Set<String> physicsBatch = new HashSet<>();
 
@@ -179,13 +164,15 @@ public abstract class Telemetry {
     for (Pellet p : pellets.values()) {
       p.incrementRespawn();
     }
-    ArrayList<PowerUp> toRemove = new ArrayList<>();
-    for (PowerUp p : activePowerUps) {
+    ArrayList<UUID> toRemove = new ArrayList<>();
+    for (PowerUp p : activePowerUps.values()) {
       if (p.incrementTime()) {
-        toRemove.add(p);
+        toRemove.add(p.id);
       }
     }
-    activePowerUps.removeAll(toRemove);
+    for (UUID id : toRemove) {
+      activePowerUps.remove(id);
+    }
     gameTimer--;
     if (gameTimer == 0) {
       System.out.println("GAME HAS ENDED ITS OVER");
@@ -204,6 +191,23 @@ public abstract class Telemetry {
     }
 
     return physicsBatch;
+  }
+
+  // physics engine
+
+  void initialisePellets() {
+    Random r = new Random();
+    pellets = new HashMap<>();
+    for (int i = 0; i < map.getMaxX(); i++) {
+      for (int j = 0; j < map.getMaxY(); j++) {
+        Point point = new Point(i + 0.5, j + 0.5);
+        if (!map.isWall(point)) {
+          Pellet pellet = r.nextInt(30) == 1 ? new PowerUpBox(point) : new Pellet(point);
+          pellet.updateImages(resourceLoader);
+          pellets.put(i + "," + j, pellet);
+        }
+      }
+    }
   }
 
   /**
@@ -244,9 +248,10 @@ public abstract class Telemetry {
    * @param agents The entities
    * @param pellets The pellets
    * @param physBatch
-   * @author Matthew Jones
+   * @author Matthew Jones Alex Banks
    */
-  private static void pelletCollision(Entity[] agents, HashMap<String, Pellet> pellets, Set<String> physBatch, ArrayList<PowerUp>activePowerUps) {
+  private static void pelletCollision(
+      Entity[] agents, HashMap<String, Pellet> pellets, Set<String> physBatch, HashMap<UUID, PowerUp> activePowerUps) {
     for (Entity agent : agents) {
       Point p = agent.getLocation();
       int x = (int) p.getX();
@@ -267,7 +272,7 @@ public abstract class Telemetry {
     return inputProcessor;
   }
 
-  public ArrayList<PowerUp> getActivePowerUps() {
+  public HashMap<UUID, PowerUp> getActivePowerUps() {
     return activePowerUps;
   }
 }

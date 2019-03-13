@@ -7,12 +7,12 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import main.Client;
 import objects.Entity;
+import objects.powerUps.PowerUp;
 import server.NetworkUtility;
 import utils.GameLoop;
 import utils.Input;
 import utils.Point;
 import utils.enums.Direction;
-import utils.enums.PowerUp;
 
 public class DumbTelemetry extends Telemetry {
 

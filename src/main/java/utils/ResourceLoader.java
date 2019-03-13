@@ -21,20 +21,21 @@ import utils.enums.RenderingMode;
 public class ResourceLoader {
 
   private final String BASE_DIR;
+  private RenderingMode renderingMode = Settings.getRenderingMode();
+  private int xResolution = Settings.getxResolution();
+  private int yResolution = Settings.getyResolution();
+  private String theme = Settings.getTheme();
 
   private final int spriteWidth = 39;
   private final int spriteHeight = 36;
-  private final String DEFAULT_THEME = "default";
   private Map map;
   private ArrayList<ArrayList<BufferedImage>> mipSprites;
   private ArrayList<ArrayList<BufferedImage>> mipOutlineSprites;
   private BufferedImage mipPalette;
-  private int mipColourID;
 
   private ArrayList<ArrayList<BufferedImage>> ghoulSprites;
   private ArrayList<ArrayList<BufferedImage>> ghoulOutlineSprites;
   private BufferedImage ghoulPalette;
-  private int ghoulColourID;
 
   private ArrayList<BufferedImage> pellets;
   private ArrayList<BufferedImage> translucentPellets;
@@ -49,7 +50,7 @@ public class ResourceLoader {
   private BufferedImage inventory;
   private ArrayList<BufferedImage> powerUpIcons;
   private int inventoryColourID;
-  private HashMap<PowerUp, ArrayList<BufferedImage>> powerUps;
+  private HashMap<utils.enums.PowerUp, ArrayList<BufferedImage>> powerUps;
 
   /**
    * @param baseDir path to the resources folder
@@ -57,27 +58,35 @@ public class ResourceLoader {
   public ResourceLoader(String baseDir) {
     BASE_DIR = baseDir;
     this.loadMap("default");
-    //this.loadMap("six_exits");
     this.init();
   }
 
   private void init() {
-    this.loadPlayableMip(DEFAULT_THEME);
-    this.loadPlayableGhoul(DEFAULT_THEME);
-    this.loadMapTiles(DEFAULT_THEME);
-    this.loadBackground(DEFAULT_THEME);
-    this.loadClientMarker(DEFAULT_THEME);
-    this.loadMipMarker(DEFAULT_THEME);
-    this.loadPellet(DEFAULT_THEME);
-    this.loadInventory(DEFAULT_THEME);
-    this.loadPowerUpIcons(DEFAULT_THEME);
-    this.loadPowerUps(DEFAULT_THEME);
+    this.loadPlayableMip();
+    this.loadPlayableGhoul();
+    this.loadMapTiles();
+    this.loadBackground();
+    this.loadClientMarker();
+    this.loadMipMarker();
+    this.loadPellet();
+    this.loadInventory();
+    this.loadPowerUpIcons();
+    this.loadPowerUps();
   }
 
-
-  public String[] getThemes() {
+  /**
+   * @return returns the hashmap<name of themes, preview image for theme> found in the resources
+   * folder
+   */
+  public HashMap<String, Image> getThemes() {
     File[] themeFolders = new File(BASE_DIR + "sprites/").listFiles(File::isDirectory);
-    return getFileNames(themeFolders);
+    HashMap<String, Image> themes = new HashMap<>();
+    for (File f : themeFolders) {
+      String previewURI = new File(f.toString(), "preview.png").toURI().toString();
+      Image preview = new Image(previewURI);
+      themes.put(f.getName(), preview);
+    }
+    return themes;
   }
 
   public BufferedImage getPlayerPalette() {
@@ -207,14 +216,31 @@ public class ResourceLoader {
     return resizedSprite;
   }
 
+  public void refreshSettings() {
+    this.xResolution = Settings.getxResolution();
+    this.yResolution = Settings.getyResolution();
+    this.renderingMode = Settings.getRenderingMode();
+    this.theme = Settings.getTheme();
+    setResolution();
+  }
+
+  public void refreshSettings(int x, int y, RenderingMode r, String theme) {
+    this.xResolution = x;
+    this.yResolution = y;
+    this.renderingMode = r;
+    this.theme = theme;
+    setResolution();
+  }
+
   /**
-   * @param x new x resolution
-   * @param y new y resolution
-   * @param mode tells ResourceLoader how to scale sprites
+   *
    */
-  public void setResolution(int x, int y, RenderingMode mode) {
+  private void setResolution() {
     init();
     double mapToScreenRatio = 0.7;
+    int x = this.xResolution;
+    int y = this.yResolution;
+    RenderingMode mode = this.renderingMode;
 
     // find dimensions of rendered map we want based on mapToScreenRatio
     int targetX = (int) (x * mapToScreenRatio);
@@ -304,16 +330,14 @@ public class ResourceLoader {
   }
 
   /**
-   * @param theme name of folder which contains the assets for that theme
    */
-  public void loadPlayableMip(String theme) {
+  public void loadPlayableMip() {
     BufferedImage spriteSheet = loadImageFile("sprites/" + theme + "/playable/", "mip");
     BufferedImage sprites = extractColour(spriteSheet, getOutlineColour(spriteSheet), true);
     BufferedImage outlineSprites = extractColour(spriteSheet, getOutlineColour(spriteSheet), false);
     this.mipSprites = splitSpriteSheet(spriteWidth, spriteHeight, sprites);
     this.mipOutlineSprites = splitSpriteSheet(spriteWidth, spriteHeight, outlineSprites);
     this.mipPalette = loadImageFile("sprites/" + theme + "/playable/", "mip_palette");
-    this.mipColourID = 0;
   }
 
   /**
@@ -339,16 +363,14 @@ public class ResourceLoader {
   }
 
   /**
-   * @param theme name of folder which contains the assets for that theme
    */
-  public void loadPlayableGhoul(String theme) {
+  public void loadPlayableGhoul() {
     BufferedImage spriteSheet = loadImageFile("sprites/" + theme + "/playable/", "ghoul");
     BufferedImage sprites = extractColour(spriteSheet, getOutlineColour(spriteSheet), true);
     BufferedImage outlineSprites = extractColour(spriteSheet, getOutlineColour(spriteSheet), false);
     this.ghoulSprites = splitSpriteSheet(spriteWidth, spriteHeight, sprites);
     this.ghoulOutlineSprites = splitSpriteSheet(spriteWidth, spriteHeight, outlineSprites);
     this.ghoulPalette = loadImageFile("sprites/" + theme + "/playable/", "ghoul_palette");
-    this.ghoulColourID = 0;
   }
 
   /**
@@ -373,7 +395,7 @@ public class ResourceLoader {
     return bufferedToJavaFxImage2D(recolouredSprites);
   }
 
-  public void loadPellet(String theme) {
+  public void loadPellet() {
     // this.pellets = splitSpriteSheet(14,34,loadImageFile("sprites/" + theme +
     // "/consumable/","pellet")).get(0);
     this.pellets =
@@ -398,9 +420,8 @@ public class ResourceLoader {
   }
 
   /**
-   * @param theme name of folder which contains the assets for that theme
    */
-  public void loadMapTiles(String theme) {
+  public void loadMapTiles() {
     ArrayList<BufferedImage> _mapTiles = new ArrayList<>();
     for (MapElement m : MapElement.values()) {
       _mapTiles.add(loadImageFile("sprites/" + theme + "/tiles/", m.toString()));
@@ -412,7 +433,7 @@ public class ResourceLoader {
     return bufferedToJavaFxImage(this.mapTiles);
   }
 
-  public void loadBackground(String theme) {
+  public void loadBackground() {
     this.background = loadImageFile("sprites/" + theme + "/backgrounds/", theme);
     this.backgroundPalette =
         loadImageFile("sprites/" + theme + "/backgrounds/", theme + "_palette");
@@ -426,7 +447,7 @@ public class ResourceLoader {
     return this.backgroundPalette;
   }
 
-  public void loadMipMarker(String theme) {
+  public void loadMipMarker() {
     this.mipMarker = loadImageFile("sprites/" + theme + "/misc/", "mip_marker");
   }
 
@@ -434,7 +455,7 @@ public class ResourceLoader {
     return SwingFXUtils.toFXImage(this.mipMarker, null);
   }
 
-  public void loadClientMarker(String theme) {
+  public void loadClientMarker() {
     this.clientMarker = loadImageFile("sprites/" + theme + "/misc/", "client_marker");
   }
 
@@ -442,7 +463,7 @@ public class ResourceLoader {
     return SwingFXUtils.toFXImage(this.clientMarker, null);
   }
 
-  public void loadInventory(String theme) {
+  public void loadInventory() {
     this.inventory = loadImageFile("sprites/" + theme + "/HUD/", "inventory");
     this.inventoryColourID = 0;
   }
@@ -456,9 +477,9 @@ public class ResourceLoader {
     return recolouredInventory;
   }
 
-  public void loadPowerUpIcons(String theme) {
+  public void loadPowerUpIcons() {
     ArrayList<BufferedImage> powerUps = new ArrayList<>();
-    for (PowerUp powerUp : PowerUp.values()) {
+    for (utils.enums.PowerUp powerUp : utils.enums.PowerUp.values()) {
       powerUps.add(loadImageFile("sprites/" + theme + "/misc/icon/", powerUp.toString()));
     }
     this.powerUpIcons = powerUps;
@@ -468,7 +489,7 @@ public class ResourceLoader {
     return bufferedToJavaFxImage(this.powerUpIcons);
   }
 
-  public void loadPowerUps(String theme) {
+  public void loadPowerUps() {
     HashMap<PowerUp, ArrayList<BufferedImage>> powerUps = new HashMap<>();
 
     //add web powerup
@@ -488,10 +509,10 @@ public class ResourceLoader {
     this.powerUps = powerUps;
   }
 
-  public HashMap<PowerUp, ArrayList<Image>> getPowerUps() {
-    HashMap<PowerUp, ArrayList<Image>> convertedSprites = new HashMap<>();
+  public HashMap<utils.enums.PowerUp, ArrayList<Image>> getPowerUps() {
+    HashMap<utils.enums.PowerUp, ArrayList<Image>> convertedSprites = new HashMap<>();
 
-    for (PowerUp key : this.powerUps.keySet()) {
+    for (utils.enums.PowerUp key : this.powerUps.keySet()) {
       convertedSprites.put(key, bufferedToJavaFxImage(this.powerUps.get(key)));
     }
 

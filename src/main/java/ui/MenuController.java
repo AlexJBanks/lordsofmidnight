@@ -18,6 +18,7 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Stack;
 import javafx.animation.FadeTransition;
@@ -51,13 +52,12 @@ import main.Client;
 import server.NetworkUtility;
 import utils.KeyRemapping;
 import utils.Map;
-import utils.MapGenerator;
+import utils.MapGenerationHandler;
 import utils.MapPreview;
 import utils.ResourceLoader;
 import utils.Settings;
 import utils.enums.InputKey;
 import utils.enums.RenderingMode;
-import utils.enums.ScreenResolution;
 
 /**
  * @author Adam Kona Class which handles the creation and functionality of components in the main
@@ -73,6 +73,8 @@ public class MenuController {
   private Stack<ArrayList<Node>> backTree = new Stack<>();
   private ArrayList<Node> itemsOnScreen = new ArrayList<>();
   private ResourceLoader resourceLoader;
+
+  private ImageView bg;
 
   private Button startGameBtn;
   private Button backBtn;
@@ -126,12 +128,26 @@ public class MenuController {
   private Button moveMapsRightBtn;
   private Map currentMap;
   private ArrayList<Map> validMaps = new ArrayList<>();
+  private Button bigMapBtn;
+  private Button smallMapBtn;
 
+  private ImageView themePreview;
+  private int themeIndex = 0;
+  private int numberofThemes;
+  private String[] themeNames;
+  private Image[] themeImages;
+  private Button moveThemesLeftBtn;
+  private Button moveThemesRightBtn;
+  private Label themeName;
+  private Button selectThemeBtn;
+  private String currentTheme;
   private boolean isHome = true;
   private boolean isInstructions = false;
   private boolean inLobby;
   private Thread playerNumberDiscovery;
   private MulticastSocket socket;
+
+  private MapGenerationHandler mapGenerationHandler;
 
   /**
    * @param audio Global audio controller which is passed around the system
@@ -144,6 +160,7 @@ public class MenuController {
     this.primaryStage = stage;
     this.client = client;
     this.resourceLoader = resourceLoader;
+    this.mapGenerationHandler = new MapGenerationHandler();
   }
 
   /**
@@ -326,6 +343,32 @@ public class MenuController {
     currentMap = validMaps.get(mapsIndex);
   }
 
+  private void showNextTheme() {
+    themeIndex++;
+    if (themeIndex >= (numberofThemes - 1)) {
+      themeIndex = numberofThemes - 1;
+      moveThemesRightBtn.setVisible(false);
+    }
+    themeName.setText(
+        themeNames[themeIndex].substring(0, 1).toUpperCase() + themeNames[themeIndex].substring(1));
+    currentTheme = themeNames[themeIndex];
+    moveThemesLeftBtn.setVisible(true);
+    themePreview.setImage(themeImages[themeIndex]);
+  }
+
+  private void showPreviousTheme() {
+    themeIndex--;
+    if (themeIndex <= 0) {
+      themeIndex = 0;
+      moveThemesLeftBtn.setVisible(false);
+    }
+    themeName.setText(
+        themeNames[themeIndex].substring(0, 1).toUpperCase() + themeNames[themeIndex].substring(1));
+    moveThemesRightBtn.setVisible(true);
+    currentTheme = themeNames[themeIndex];
+    themePreview.setImage(themeImages[themeIndex]);
+  }
+
   /**
    * Hides remapping toggles when they are no longer needed
    *
@@ -354,6 +397,7 @@ public class MenuController {
    */
   private void initialiseToggleActions() {
     for (ToggleButton t : keyToggleList) {
+      t.setStyle("-fx-text-fill: " + UIColours.YELLOW + ";");
       t.setOnAction(event -> {
         if (t.isSelected()) {
           t.setText(remapToggleText);
@@ -418,13 +462,11 @@ public class MenuController {
    * and does not rise above the original image size.
    */
   public void scaleImages(double newVal, double oldVal) {
-
     for (int i = 0; i < imageViews.size(); i++) {
       ImageView currentView = imageViews.get(i);
       double currentWidth = currentView.getBoundsInLocal().getWidth();
       currentView.setPreserveRatio(true);
       currentView.setSmooth(true);
-
       double proposedWidth = Math.floor(currentWidth * (newVal / oldVal));
       if (proposedWidth > originalViewWidths.get(i)) {
         currentView.setFitWidth(originalViewWidths.get(i));
@@ -460,9 +502,10 @@ public class MenuController {
     StackPane root = new StackPane();
     root.setPrefSize(1920, 1080);
 
-    ImageView bg = new ImageView("sprites/default/backgrounds/default.png");
-
+    bg = new ImageView(resourceLoader.getBackground());
     bg.fitWidthProperty().bind(this.primaryStage.widthProperty());
+    bg.fitHeightProperty().bind(this.primaryStage.heightProperty());
+
     root.getChildren().add(bg);
     StackPane.setAlignment(bg, Pos.CENTER);
 
@@ -491,9 +534,9 @@ public class MenuController {
       mapImages.add(mapPreview.getMapPreview(map));
     }
 
-    VBox mapSelectionView = new VBox(40);
+    VBox mapSelectionView = new VBox(25);
     Label selectMapLbl = LabelGenerator
-            .generate(true, mapSelectionView, "Select a map: ", UIColours.BLACK, 14);
+        .generate(true, mapSelectionView, "Select a map: ", UIColours.WHITE, 14);
     moveMapsLeftBtn = ButtonGenerator.generate(true, root, "<", UIColours.WHITE, 40);
     moveMapsRightBtn = ButtonGenerator.generate(true, root, ">", UIColours.WHITE, 40);
     moveMapsLeftBtn.setVisible(false);
@@ -504,6 +547,8 @@ public class MenuController {
     }
     moveMapsLeftBtn.setOnAction(event -> showPreviousMap());
     moveMapsRightBtn.setOnAction(event -> showNextMap());
+    moveMapsLeftBtn.setFocusTraversable(false);
+    moveMapsRightBtn.setFocusTraversable(false);
 
     mapView = new ImageView(mapImages.get(0));
     currentMap = validMaps.get(0);
@@ -522,9 +567,14 @@ public class MenuController {
       showItemsOnScreen();
     });
 
-    generateMapBtn.setOnAction(event -> {
-      int[][] newMap = MapGenerator.newRandomMap(1, 1);
-      Map generatedMap = new Map(newMap);
+    HBox mapSelectionBtns = new HBox(20, generateMapBtn, mapConfirmationBtn);
+
+    HBox mapSizeBtns = new HBox(20);
+    mapSizeBtns.setVisible(false);
+
+    smallMapBtn = ButtonGenerator.generate(true, mapSizeBtns, "Small", UIColours.GREEN, 35);
+    smallMapBtn.setOnAction(event -> {
+      Map generatedMap = mapGenerationHandler.getSmallMap();
       validMaps.add(generatedMap);
       Image generatedPreview = mapPreview.getMapPreview(generatedMap);
       mapImages.add(generatedPreview);
@@ -534,15 +584,57 @@ public class MenuController {
       mapView.setImage(mapImages.get(mapsIndex));
       moveMapsRightBtn.setVisible(false);
       moveMapsLeftBtn.setVisible(true);
+      mapSelectionBtns.getChildren().removeAll(smallMapBtn, bigMapBtn);
+      mapSelectionBtns.getChildren().remove(generateMapBtn);
+      mapSelectionBtns.getChildren().addAll(generateMapBtn, mapConfirmationBtn);
+
+    });
+    bigMapBtn = ButtonGenerator.generate(true, mapSizeBtns, "Big", UIColours.RED, 35);
+    bigMapBtn.setOnAction(event -> {
+      Map generatedMap = mapGenerationHandler.getBigMap();
+      validMaps.add(generatedMap);
+      Image generatedPreview = mapPreview.getMapPreview(generatedMap);
+      mapImages.add(generatedPreview);
+      numberOfMaps++;
+      mapsIndex = numberOfMaps - 1;
+      currentMap = validMaps.get(mapsIndex);
+      mapView.setImage(mapImages.get(mapsIndex));
+      moveMapsRightBtn.setVisible(false);
+      moveMapsLeftBtn.setVisible(true);
+      mapSelectionBtns.getChildren().removeAll(smallMapBtn, bigMapBtn);
+      mapSelectionBtns.getChildren().remove(generateMapBtn);
+      mapSelectionBtns.getChildren().addAll(generateMapBtn, mapConfirmationBtn);
+
+    });
+    mapSizeBtns.setAlignment(Pos.CENTER);
+
+
+    generateMapBtn.setOnAction(event -> {
+//      int[][] newMap = MapGenerator.newRandomMap(2, 2);
+//      Map generatedMap = new Map(newMap);
+      mapSizeBtns.setVisible(true);
+      mapSelectionBtns.getChildren().remove(mapConfirmationBtn);
+      mapSelectionBtns.getChildren().remove(generateMapBtn);
+      mapSelectionBtns.getChildren().addAll(smallMapBtn, bigMapBtn);
+//      Map generatedMap = mapGenerationHandler.getBigMap();
+//      validMaps.add(generatedMap);
+//      Image generatedPreview = mapPreview.getMapPreview(generatedMap);
+//      mapImages.add(generatedPreview);
+//      numberOfMaps++;
+//      mapsIndex = numberOfMaps - 1;
+//      currentMap = validMaps.get(mapsIndex);
+//      mapView.setImage(mapImages.get(mapsIndex));
+//      moveMapsRightBtn.setVisible(false);
+//      moveMapsLeftBtn.setVisible(true);
     });
 
     HBox mapSelectionBox = new HBox(30, moveMapsLeftBtn, mapView, moveMapsRightBtn);
-    HBox mapSelectionBtns = new HBox(20, generateMapBtn, mapConfirmationBtn);
-    mapSelectionView.getChildren().addAll(mapSelectionBox, mapSelectionBtns);
+
+    mapSelectionView.getChildren().addAll(mapSelectionBox, mapSelectionBtns, mapSizeBtns);
     mapSelectionBtns.setAlignment(Pos.CENTER);
     mapSelectionBox.setAlignment(Pos.CENTER);
     mapSelectionView.setAlignment(Pos.CENTER);
-    StackPane.setMargin(mapSelectionView, new Insets(0, 0, 150, 0));
+    StackPane.setMargin(mapSelectionView, new Insets(0, 0, 100, 0));
     mapSelectionView.setVisible(false);
     root.getChildren().add(mapSelectionView);
 
@@ -586,8 +678,6 @@ public class MenuController {
               itemsOnScreen.add(gameModeOptions);
               showItemsOnScreen();
             });
-
-    client.setRenderingMode(RenderingMode.SMOOTH_SCALING);
 
     ImageView creditsView = new ImageView("ui/Credits.png");
     Button creditsBtn = ButtonGenerator.generate(false, root, creditsView);
@@ -722,7 +812,7 @@ public class MenuController {
 
     StackPane soundTabLayout = new StackPane();
 
-    Label musicLbl = LabelGenerator.generate(true, soundTabLayout, "Music:", UIColours.BLACK, 16);
+    Label musicLbl = LabelGenerator.generate(true, soundTabLayout, "Music:", UIColours.WHITE, 16);
     JFXToggleButton musicToggle = new JFXToggleButton();
     musicToggle.setSelected(true);
     musicToggle.setOnAction(event -> {
@@ -741,7 +831,7 @@ public class MenuController {
     StackPane.setMargin(musicToggle, new Insets(128, 0, 0, 200));
 
     Label soundFXLbl = LabelGenerator
-            .generate(true, soundTabLayout, "SoundFX:", UIColours.BLACK, 16);
+        .generate(true, soundTabLayout, "SoundFX:", UIColours.WHITE, 16);
     JFXToggleButton soundFXToggle = new JFXToggleButton();
     soundFXToggle.setSelected(true);
     soundFXToggle.setOnAction(event -> {
@@ -759,7 +849,7 @@ public class MenuController {
     StackPane.setAlignment(soundFXToggle, Pos.CENTER);
     StackPane.setMargin(soundFXToggle, new Insets(0, 0, 0, 200));
 
-    Label volumeLbl = LabelGenerator.generate(true, soundTabLayout, "Volume:", UIColours.BLACK, 16);
+    Label volumeLbl = LabelGenerator.generate(true, soundTabLayout, "Volume:", UIColours.WHITE, 16);
 
     JFXSlider volumeSlider = new JFXSlider(0, 1, 0.5);
 
@@ -786,7 +876,7 @@ public class MenuController {
 
     //Adding resolution label and combo box
     Label resolutionLbl = LabelGenerator
-            .generate(true, graphicsTabLayout, "Resolution: ", UIColours.BLACK, 14);
+        .generate(true, graphicsTabLayout, "Resolution: ", UIColours.WHITE, 14);
 
     JFXComboBox<String> resolutionCombo = new JFXComboBox<>();
     resolutionCombo.getItems().add("1366x768");
@@ -799,17 +889,21 @@ public class MenuController {
       audioController.playSound(Sounds.click);
       switch (resolutionCombo.getValue()) {
         case "1366x768":
-          client.updateResolution(ScreenResolution.LOW);
+          Settings.setxResolution(1366);
+          Settings.setyResolution(768);
           break;
         case "1920x1080":
-          client.updateResolution(ScreenResolution.MEDIUM);
+          Settings.setxResolution(1920);
+          Settings.setyResolution(1080);
           break;
         case "2560x1440":
-          client.updateResolution(ScreenResolution.HIGH);
+          Settings.setxResolution(2560);
+          Settings.setyResolution(1440);
           break;
         default:
           System.out.println("FAILED");
       }
+      client.updateResolution();
     });
 
     // Provide our own ListCells for the ComboBox
@@ -823,7 +917,7 @@ public class MenuController {
 
     //Adding resolution label and combo box
     Label scalingLbl = LabelGenerator
-            .generate(true, graphicsTabLayout, "Resolution Scaling: ", UIColours.BLACK, 14);
+        .generate(true, graphicsTabLayout, "Resolution Scaling: ", UIColours.WHITE, 14);
 
     JFXComboBox<String> scalingCombo = new JFXComboBox<>();
     scalingCombo.getItems().add("None");
@@ -835,16 +929,16 @@ public class MenuController {
     scalingCombo.setOnAction(event -> {
       switch (scalingCombo.getValue()) {
         case "None":
-          client.setRenderingMode(RenderingMode.NO_SCALING);
+          Settings.setRenderingMode(RenderingMode.NO_SCALING);
           break;
         case "Standard":
-          client.setRenderingMode(RenderingMode.STANDARD_SCALING);
+          Settings.setRenderingMode(RenderingMode.STANDARD_SCALING);
           break;
         case "Smooth":
-          client.setRenderingMode(RenderingMode.SMOOTH_SCALING);
+          Settings.setRenderingMode(RenderingMode.SMOOTH_SCALING);
           break;
         case "Integer":
-          client.setRenderingMode(RenderingMode.INTEGER_SCALING);
+          Settings.setRenderingMode(RenderingMode.INTEGER_SCALING);
           break;
         default:
           System.out.println("Setting rendering mode failed.");
@@ -874,19 +968,19 @@ public class MenuController {
 
     upLbl = LabelGenerator
             .generate(true, keyLbls, "UP KEY: " + Settings.getKey(InputKey.UP).getName(),
-                    UIColours.BLACK, 14);
+                UIColours.WHITE, 14);
     leftLbl = LabelGenerator
             .generate(true, keyLbls, "LEFT KEY: " + Settings.getKey(InputKey.LEFT).getName(),
-                    UIColours.BLACK, 14);
+                UIColours.WHITE, 14);
     rightLbl = LabelGenerator
             .generate(true, keyLbls, "RIGHT KEY: " + Settings.getKey(InputKey.RIGHT).getName(),
-                    UIColours.BLACK, 14);
+                UIColours.WHITE, 14);
     downLbl = LabelGenerator
             .generate(true, keyLbls, "DOWN KEY: " + Settings.getKey(InputKey.DOWN).getName(),
-                    UIColours.BLACK, 14);
+                UIColours.WHITE, 14);
     useLbl = LabelGenerator
             .generate(true, keyLbls, "USE KEY: " + Settings.getKey(InputKey.USE).getName(),
-                    UIColours.BLACK, 14);
+                UIColours.WHITE, 14);
     keyLbls.setAlignment(Pos.CENTER);
 
     StackPane.setAlignment(keyLbls, Pos.CENTER);
@@ -930,8 +1024,57 @@ public class MenuController {
     controlsLayout.getChildren().addAll(keyLbls, keyToggles, keyToggleStatus);
     controlsTab.setContent(controlsLayout);
 
+    Tab themeTab = new Tab();
+    themeTab.setText("Themes");
+
+    StackPane themesTabLayout = new StackPane();
+
+    HashMap<String, Image> availableThemes = resourceLoader.getThemes();
+    themeNames = Arrays
+        .copyOf(availableThemes.keySet().toArray(), availableThemes.keySet().toArray().length,
+            String[].class);
+    themeImages = Arrays
+        .copyOf(availableThemes.values().toArray(), availableThemes.values().toArray().length,
+            Image[].class);
+    numberofThemes = availableThemes.size();
+
+    VBox themesContainer = new VBox(30);
+    HBox themeBtns = new HBox(20);
+    themesContainer.setAlignment(Pos.CENTER);
+    themePreview = new ImageView(themeImages[0]);
+    themePreview.setPreserveRatio(true);
+    themePreview.setFitWidth(600);
+
+    currentTheme = themeNames[themeIndex];
+    String initialName =
+        themeNames[themeIndex].substring(0, 1).toUpperCase() + themeNames[themeIndex].substring(1);
+    themeName = LabelGenerator.generate(true, themesContainer, initialName, UIColours.WHITE, 25);
+
+    moveThemesLeftBtn = ButtonGenerator.generate(false, themeBtns, "<", UIColours.WHITE, 30);
+    themeBtns.getChildren().add(themePreview);
+    moveThemesRightBtn = ButtonGenerator.generate(true, themeBtns, ">", UIColours.WHITE, 30);
+    themesContainer.getChildren().add(themeBtns);
+    themeBtns.setAlignment(Pos.CENTER);
+
+    moveThemesRightBtn.setOnAction(event -> showNextTheme());
+    moveThemesLeftBtn.setOnAction(event -> showPreviousTheme());
+    moveThemesRightBtn.setFocusTraversable(false);
+    moveThemesLeftBtn.setFocusTraversable(false);
+
+    selectThemeBtn = ButtonGenerator.generate(true, themesContainer, "Select", UIColours.GREEN, 30);
+    selectThemeBtn.setOnAction(event -> {
+      client.updateTheme(currentTheme);
+      bg.setImage(resourceLoader.getBackground());
+    });
+
+    themesContainer.setVisible(true);
+    themesTabLayout.getChildren().add(themesContainer);
+
+    StackPane.setAlignment(themesContainer, Pos.CENTER);
+    themeTab.setContent(themesTabLayout);
+
     //Adds the tabs to the tab pane
-    settingsTabs.getTabs().addAll(soundTab, graphicsTab, controlsTab);
+    settingsTabs.getTabs().addAll(soundTab, graphicsTab, controlsTab, themeTab);
 
     //Calculates the width of the tabs
     double tabWidth = settingsTabs.getMaxWidth() / settingsTabs.getTabs().size();
@@ -1005,6 +1148,7 @@ public class MenuController {
     instructions.setOnAction(event -> {
       audioController.playSound(Sounds.click);
       moveItemsToBackTree();
+      settingsBtn.setVisible(false);
       isInstructions = true;
       backBtn.setVisible(true);
       itemsOnScreen.add(instructionLbl);
@@ -1028,14 +1172,13 @@ public class MenuController {
                 itemsOnScreen.addAll(toShow);
                 showItemsOnScreen();
                 isInstructions = false;
+                settingsBtn.setVisible(true);
 
               }
 
               if (inLobby) {
                 playerNumberDiscovery.interrupt();
                 client.leaveLobby();
-//            lobbyPlayers.interrupt();
-
                 inLobby = false;
 
               }
