@@ -143,6 +143,7 @@ public abstract class Telemetry {
                   new Input(i, Direction.STOP), prevLocation, i)); // TODO clarify which 'client ID'
         }
       }
+      agents[i].countRespawn();
     }
 
     // separate loop for checking collision after iteration
@@ -151,11 +152,14 @@ public abstract class Telemetry {
       for (int j = (i + 1); j < AGENT_COUNT; j++) {
 
         if (agents[i].isMipsman() && !agents[j].isMipsman() && !agents[i].isInvincible()) {
-          detectEntityCollision(agents[i], agents[j], resourceLoader, physicsBatch);
+          detectEntityCollision(agents[i], agents[j], resourceLoader);
+        } else if (agents[i].isInvincible() && !agents[j].isInvincible()) {
+          invincibleCollision(agents[i], agents[j], resourceLoader, physBatch);
         }
-
         if (agents[j].isMipsman() && !agents[i].isMipsman() && !agents[j].isInvincible()) {
-          detectEntityCollision(agents[j], agents[i], resourceLoader, physicsBatch);
+          detectEntityCollision(agents[j], agents[i], resourceLoader);
+        } else if (agents[j].isInvincible() && !agents[i].isInvincible()) {
+          invincibleCollision(agents[j], agents[i], resourceLoader, physBatch);
         }
       }
     }
@@ -164,6 +168,7 @@ public abstract class Telemetry {
     for (Pellet p : pellets.values()) {
       p.incrementRespawn();
     }
+
     ArrayList<UUID> toRemove = new ArrayList<>();
     for (PowerUp p : activePowerUps.values()) {
       if (p.incrementTime()) {
@@ -210,6 +215,14 @@ public abstract class Telemetry {
     }
   }
 
+  static void invincibleCollision(Entity killer, Entity victim, ResourceLoader r) {
+    Point killerLocation = killer.getFaceLocation();
+    Point victimLocation = victim.getLocation();
+    if (victimLocation.inRange(killerLocation)) {
+      Methods.kill(killer, victim);
+      victim.setLocation(r.getMap().getRandomSpawnPoint());
+    }
+  }
   /**
    * Static method for 'swapping' a mipsman and ghoul if they occupy the same area.
    *
@@ -226,6 +239,7 @@ public abstract class Telemetry {
       client.collisionDetected(ghoul);
       mipsman.setMipsman(false);
       ghoul.setMipsman(true);
+      Methods.kill(ghoul, mipsman);
       mipsman.setLocation(resourceLoader.getMap().getRandomSpawnPoint());
       mipsman.setDirection(Direction.UP);
       mipsman.updateImages(resourceLoader);

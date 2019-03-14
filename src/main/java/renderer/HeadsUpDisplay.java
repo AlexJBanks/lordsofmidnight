@@ -243,5 +243,15 @@ public class HeadsUpDisplay {
     } catch (FileNotFoundException e) {
       e.printStackTrace();
     }
+    this.playerColours = resourceLoader.getPlayerPalette();
+  }
+
+  public void renderDeathScreen(int timeUntilRespawn) {
+    gc.setFill(new Color(0, 0, 0, 0.5));
+    gc.fillRect(0, 0, xResolution, yResolution);
+    gc.setFont(geoLarge);
+    gc.setFill(Color.WHITE);
+    gc.setTextAlign(TextAlignment.CENTER);
+    gc.fillText("RESPAWNING IN: " + timeUntilRespawn, xResolution / 2, yResolution / 2);
   }
 }

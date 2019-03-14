@@ -3,11 +3,14 @@ package objects;
 import ai.routefinding.RouteFinder;
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import javafx.scene.image.Image;
 import objects.powerUps.PowerUp;
 import utils.Point;
 import utils.Renderable;
 import utils.ResourceLoader;
+import utils.StatsTracker;
 import utils.enums.Direction;
 
 /**
@@ -41,8 +44,14 @@ public class Entity implements Renderable {
   private boolean directionSet;
   private boolean stunned;
   private boolean dead;
-  private boolean speeding;
+  private final int DEATHTIME = 400;
+  private int deathCounter;
   private boolean invincible;
+  private boolean hidden;
+
+
+  private StatsTracker statsTracker;
+  private Queue<Point> deathLocation = new ConcurrentLinkedQueue();
 
   /**
    * Constructor
@@ -63,7 +72,12 @@ public class Entity implements Renderable {
     this.directionSet = false;
     this.name = "Player" + clientId;
     this.bonusSpeed = 0;
+    this.statsTracker = new StatsTracker();
     // updateImages();
+  }
+
+  public StatsTracker getStatsTracker() {
+    return statsTracker;
   }
 
   public boolean isSpeeding() {
@@ -87,7 +101,6 @@ public class Entity implements Renderable {
   }
 
   public void setStunned(boolean stunned) {
-    System.out.println("entity " + clientId + " is " + stunned + " stunned");
     this.stunned = stunned;
     if (stunned) {
       velocity = 0;
@@ -102,18 +115,28 @@ public class Entity implements Renderable {
 
   public void setDead(boolean dead) {
     this.dead = dead;
+    deathLocation.add(new Point(location.getX(), location.getY()));
     if (dead) {
+      statsTracker.increaseDeaths();
       velocity = 0;
+      deathCounter = 0;
     } else {
       resetVelocity();
     }
+
+  }
+
+  public Point getDeathLocation() {
+    return deathLocation.poll();
+  }
+
+  public void increaseKills() {
+    statsTracker.increaseKills();
   }
 
   public void changeBonusSpeed(double i) {
     bonusSpeed += i;
-    System.out.println("speed changed by " + i);
     resetVelocity();
-    System.out.println("bonus speed is " + bonusSpeed + "  t/f: " + (bonusSpeed > 0));
   }
 
   /**
@@ -140,6 +163,7 @@ public class Entity implements Renderable {
     if (items.size() < 1) {
       return null;
     }
+    statsTracker.increaseItemsUsed();
     return items.pop();
   }
 
@@ -301,8 +325,14 @@ public class Entity implements Renderable {
   public void incrementScore(int... i) {
     if (i.length > 0) {
       score = score + i[0];
+      if (i[0] > 0) {
+        statsTracker.increasePointsGained(i[0]);
+      } else {
+        statsTracker.increasePointsLost(-i[0]);
+      }
     } else {
       score++;
+      statsTracker.increasePointsGained();
     }
   }
 
@@ -402,6 +432,11 @@ public class Entity implements Renderable {
     }
   }
 
+  public void countRespawn() {
+    if (deathCounter++ == DEATHTIME) {
+      setDead(false);
+    }
+  }
   public String getName() {
     return name;
   }
@@ -420,5 +455,21 @@ public class Entity implements Renderable {
 
   public void resetVelocity() {
     this.velocity = (mipsman ? MIPS_SPEED : GHOUL_SPEED) + bonusSpeed;
+  }
+
+  public int getDeathCounter() {
+    return this.deathCounter;
+  }
+
+  public int getDeathTime() {
+    return this.DEATHTIME;
+  }
+
+  public void toggleHidden() {
+    hidden = !hidden;
+  }
+
+  public boolean getHidden() {
+    return hidden;
   }
 }
