@@ -1,15 +1,11 @@
 package com.lordsofmidnight.server.telemeters;
 
-import static server.NetworkUtility.makeEntitiyMovementPacket;
-import static server.NetworkUtility.makeEntityItemCollisionPacket;
-import static server.NetworkUtility.makePacGhoulCollisionPacket;
+import static com.lordsofmidnight.server.NetworkUtility.makeEntitiyMovementPacket;
+import static com.lordsofmidnight.server.NetworkUtility.makeEntityItemCollisionPacket;
+import static com.lordsofmidnight.server.NetworkUtility.makePacGhoulCollisionPacket;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Random;
-import java.util.Set;
-import java.util.UUID;
+import com.lordsofmidnight.gamestate.maps.Map;
+import com.lordsofmidnight.gamestate.points.Point;
 import com.lordsofmidnight.main.Client;
 import com.lordsofmidnight.objects.Entity;
 import com.lordsofmidnight.objects.Pellet;
@@ -17,11 +13,15 @@ import com.lordsofmidnight.objects.PowerUpBox;
 import com.lordsofmidnight.objects.powerUps.PowerUp;
 import com.lordsofmidnight.utils.GameLoop;
 import com.lordsofmidnight.utils.Input;
-import com.lordsofmidnight.gamestate.maps.Map;
 import com.lordsofmidnight.utils.Methods;
-import com.lordsofmidnight.gamestate.points.Point;
 import com.lordsofmidnight.utils.ResourceLoader;
 import com.lordsofmidnight.utils.enums.Direction;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
+import java.util.UUID;
 
 
 /**
