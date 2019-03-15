@@ -1,6 +1,10 @@
 package com.lordsofmidnight.server;
 
-import java.awt.geom.Point2D;
+import com.lordsofmidnight.gamestate.points.Point;
+import com.lordsofmidnight.objects.Entity;
+import com.lordsofmidnight.objects.powerUps.PowerUp;
+import com.lordsofmidnight.utils.Input;
+import com.lordsofmidnight.utils.enums.Direction;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
@@ -11,11 +15,6 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.util.Enumeration;
-import com.lordsofmidnight.objects.Entity;
-import com.lordsofmidnight.objects.powerUps.PowerUp;
-import com.lordsofmidnight.utils.Input;
-import com.lordsofmidnight.gamestate.points.Point;
-import com.lordsofmidnight.utils.enums.Direction;
 
 /**
  * Class which will holds shared utility data for classes.
@@ -43,6 +42,8 @@ public class NetworkUtility {
   public static final int STRING_LIMIT = 128;
   public static final Charset CHARSET = StandardCharsets.US_ASCII;
   public static final int LOBBY_TIMEOUT = 3500;
+
+  private static final String DELIM = "|";
 
   public static InetAddress GROUP;
   private static DecimalFormat coordFormat = new DecimalFormat("000.000");
@@ -122,10 +123,10 @@ public class NetworkUtility {
    */
   public static String makeEntitiyPositionPacket(
       int entityID, Direction direction, Point position) {
-    return "POS0"
-        + entityID
-        + direction.toInt()
-        + coordFormat.format(position.getX())
+    return POSITION_CODE + 0 + DELIM
+        + entityID + DELIM
+        + direction.toInt() + DELIM
+        + coordFormat.format(position.getX()) + DELIM
         + coordFormat.format(position.getY());
   }
 
@@ -137,13 +138,10 @@ public class NetworkUtility {
    * @return The string packet.
    */
   public static String makeEntitiyMovementPacket(Input input, Point position, int mipID) {
-    return "POS1"
-        + input.toString()
-        + "|"
-        + coordFormat.format(position.getX())
-        + "|"
-        + coordFormat.format(position.getY())
-        + "|"
+    return POSITION_CODE + 1 + DELIM
+        + input.toString() + DELIM
+        + coordFormat.format(position.getX()) + DELIM
+        + coordFormat.format(position.getY()) + DELIM
         + mipID;
   }
 
@@ -154,12 +152,10 @@ public class NetworkUtility {
    * @param position The position of the item
    * @return The string packet
    */
-  public static String makeItemPositionPacket(int itemID, Point2D.Double position) {
-    return "POS2"
-        + itemID
-        + "|"
-        + coordFormat.format(position.getX())
-        + "|"
+  public static String makeItemPositionPacket(int itemID, Point position) {
+    return POSITION_CODE + 2 + DELIM
+        + itemID + DELIM
+        + coordFormat.format(position.getX()) + DELIM
         + coordFormat.format(position.getY());
   }
 
@@ -170,7 +166,7 @@ public class NetworkUtility {
    * @return The string packet.
    */
   public static String makeEntitiesPositionPacket(Entity[] agents) {
-    String s = "POS3"; // id:X:Y|id:X:Y|id:X:Y...
+    String s = POSITION_CODE + 3 + DELIM; // id:X:Y|id:X:Y|id:X:Y...
     for (int i = 0; i < agents.length; i++) {
       s +=
           i
@@ -195,31 +191,27 @@ public class NetworkUtility {
    */
   public static String makePacGhoulCollisionPacket(
       int pacmanID, int ghoulID, Point position) {
-    return "COL0"
-        + pacmanID
-        + ghoulID
-        + coordFormat.format(position.getX())
+    return COLLISIONS_CODE + 0 + DELIM
+        + pacmanID + DELIM
+        + ghoulID + DELIM
+        + coordFormat.format(position.getX()) + DELIM
         + coordFormat.format(position.getX());
   }
 
   /**
-   * Makes the packet for a collision between an entity and a packet
+   * Makes the packet for a collision between an entity and a pellet
    *
    * @param entityID Entity ID
-   * @param itemID ID of the item
-   * @param powerup Enum of the power-up which may have taken place.
    * @param score Score of the entity after the power up
-   * @param position The position the collision took place.
+   * @param position Grid Coordinate collision took place.
    * @return The String representing this packet.
    */
-  public static String makeEntityItemCollisionPacket(
-      int entityID, int itemID, int powerup, int score, Point position) {
-    return "COL1"
-        + entityID
-        + itemID //item doesn't have an id????
-        + powerup
-        + score
-        + coordFormat.format(position.getX())
+  public static String makeEntityPelletCollisionPacket(
+      int entityID, int score, Point position) {
+    return COLLISIONS_CODE + 1 + DELIM
+        + entityID + DELIM
+        + score + DELIM
+        + coordFormat.format(position.getX()) + DELIM
         + coordFormat.format(position.getY());
   }
 
@@ -232,13 +224,10 @@ public class NetworkUtility {
    * @return The string packet.
    */
   public static String makePowerUpPacket(int id, PowerUp powerup, Point position) {
-    return "POW1"
-        + id
-        + "|"
-        + powerup.toInt()
-        + "|"
-        + coordFormat.format(position.getX())
-        + "|"
+    return POWERUP_CODE + 0 + DELIM
+        + id + DELIM
+        + powerup.toInt() + DELIM
+        + coordFormat.format(position.getX()) + DELIM
         + coordFormat.format(position.getY());
   }
 

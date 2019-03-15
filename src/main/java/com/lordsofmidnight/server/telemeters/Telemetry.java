@@ -1,7 +1,7 @@
 package com.lordsofmidnight.server.telemeters;
 
 import static com.lordsofmidnight.server.NetworkUtility.makeEntitiyMovementPacket;
-import static com.lordsofmidnight.server.NetworkUtility.makeEntityItemCollisionPacket;
+import static com.lordsofmidnight.server.NetworkUtility.makeEntityPelletCollisionPacket;
 import static com.lordsofmidnight.server.NetworkUtility.makePacGhoulCollisionPacket;
 
 import com.lordsofmidnight.gamestate.maps.Map;
@@ -275,8 +275,8 @@ public abstract class Telemetry {
       if (pellet != null) {
         if (pellet.interact(agent, agents, activePowerUps)) {
           physBatch.add(
-              makeEntityItemCollisionPacket(
-                  agent.getClientId(), -1, -1, agent.getScore(), agent.getLocation()));
+              makeEntityPelletCollisionPacket(
+                  agent.getClientId(), agent.getScore(), agent.getLocation().getGridCoord()));
           //TODO itemID and powerUp need reviewing
         }
       }

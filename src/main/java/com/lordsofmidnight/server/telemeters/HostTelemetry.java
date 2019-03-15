@@ -1,11 +1,7 @@
 package com.lordsofmidnight.server.telemeters;
 
-import java.util.Queue;
-import java.util.Random;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-
 import com.lordsofmidnight.ai.AILoopControl;
+import com.lordsofmidnight.gamestate.points.Point;
 import com.lordsofmidnight.main.Client;
 import com.lordsofmidnight.objects.Entity;
 import com.lordsofmidnight.objects.powerUps.PowerUp;
@@ -13,8 +9,11 @@ import com.lordsofmidnight.server.NetworkUtility;
 import com.lordsofmidnight.utils.GameLoop;
 import com.lordsofmidnight.utils.Input;
 import com.lordsofmidnight.utils.Methods;
-import com.lordsofmidnight.gamestate.points.Point;
 import com.lordsofmidnight.utils.enums.Direction;
+import java.util.Queue;
+import java.util.Random;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class HostTelemetry extends Telemetry {
 
@@ -89,7 +88,7 @@ public class HostTelemetry extends Telemetry {
     updateClients(agents); // set starting positions
     startAI();
 
-    final long DELAY = (long) Math.pow(10, 7);
+    final long DELAY = (long) Math.pow(10, 9);
     final long positionDELAY = (long) Math.pow(10, 9) / 2;
     final long scoreDELAY = (long) Math.pow(10, 9);
 
@@ -98,7 +97,8 @@ public class HostTelemetry extends Telemetry {
           @Override
           public void handle() {
             processInputs();
-            processPhysics(agents, map, resourceLoader, pellets, activePowerUps);
+            System.out
+                .println(processPhysics(agents, map, resourceLoader, pellets, activePowerUps));
           }
         };
     inputProcessor.start();
