@@ -1,10 +1,11 @@
 package com.lordsofmidnight.server.telemeters;
 
-import com.lordsofmidnight.ai.AILoopControl;
 import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+
+import com.lordsofmidnight.ai.AILoopControl;
 import com.lordsofmidnight.main.Client;
 import com.lordsofmidnight.objects.Entity;
 import com.lordsofmidnight.objects.powerUps.PowerUp;
@@ -138,6 +139,8 @@ public class HostTelemetry extends Telemetry {
       int id = input.getClientID();
       Direction d = input.getMove();
       if (d.equals(Direction.USE)) {
+        agents[id].setPowerUpUsedFlag(false);
+        agents[id].setDirectionSetFlag(false);
         usePowerUp(id);
       } else {
         agents[id].setDirectionSetFlag(false);

@@ -42,12 +42,14 @@ public class Entity implements Renderable {
   private long timeSinceLastFrame = 0;
   private int currentFrame = 0;
   private boolean directionSet;
+  private boolean powerUpUsed;
   private boolean stunned;
   private boolean dead;
   private final int DEATHTIME = 400;
   private int deathCounter;
   private boolean invincible;
   private boolean hidden;
+  private String killedBy = "";
 
 
   private StatsTracker statsTracker;
@@ -70,6 +72,7 @@ public class Entity implements Renderable {
     this.oldDirection = Direction.UP;
     this.items = new LinkedList<>();
     this.directionSet = false;
+    this.powerUpUsed = false;
     this.name = "Player" + clientId;
     this.bonusSpeed = 0;
     this.statsTracker = new StatsTracker();
@@ -475,6 +478,14 @@ public class Entity implements Renderable {
     this.directionSet = b;
   }
 
+  public boolean isPowerUpUsed() {
+    return powerUpUsed;
+  }
+
+  public void setPowerUpUsedFlag(boolean b) {
+    this.powerUpUsed = b;
+  }
+
   public void resetVelocity() {
     this.velocity = (mipsman ? MIPS_SPEED : GHOUL_SPEED) + bonusSpeed;
   }
@@ -493,5 +504,13 @@ public class Entity implements Renderable {
 
   public boolean getHidden() {
     return hidden;
+  }
+
+  public void setKilledBy(String name){
+    this.killedBy = name;
+  }
+
+  public String getKilledBy(){
+    return this.killedBy;
   }
 }
