@@ -12,6 +12,7 @@ import com.lordsofmidnight.utils.Methods;
 import com.lordsofmidnight.utils.enums.Direction;
 import java.util.Queue;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -97,8 +98,12 @@ public class HostTelemetry extends Telemetry {
           @Override
           public void handle() {
             processInputs();
-            System.out
-                .println(processPhysics(agents, map, resourceLoader, pellets, activePowerUps));
+            Set<String> physicsBatch = processPhysics(agents, map, resourceLoader, pellets,
+                activePowerUps);
+            System.out.println("physicsBatch: " + physicsBatch);
+            if (!singlePlayer) {
+              outputs.addAll(physicsBatch);
+            }
           }
         };
     inputProcessor.start();
