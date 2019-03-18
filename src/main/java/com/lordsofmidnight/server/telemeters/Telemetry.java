@@ -6,6 +6,9 @@ import static com.lordsofmidnight.server.NetworkUtility.makePacGhoulCollisionPac
 
 import com.lordsofmidnight.gamestate.maps.Map;
 import com.lordsofmidnight.gamestate.points.Point;
+import java.util.*;
+
+import com.lordsofmidnight.gamestate.points.PointMap;
 import com.lordsofmidnight.main.Client;
 import com.lordsofmidnight.objects.Entity;
 import com.lordsofmidnight.objects.Pellet;
@@ -16,12 +19,6 @@ import com.lordsofmidnight.utils.Input;
 import com.lordsofmidnight.utils.Methods;
 import com.lordsofmidnight.utils.ResourceLoader;
 import com.lordsofmidnight.utils.enums.Direction;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Random;
-import java.util.Set;
-import java.util.UUID;
 
 
 /**
@@ -40,7 +37,7 @@ public abstract class Telemetry {
   static int gameTimer = GAME_TIME;
   Map map;
   Entity[] agents;
-  HashMap<String, Pellet> pellets;
+  PointMap<Pellet> pellets;
   ResourceLoader resourceLoader;
   static Client client;
   protected GameLoop inputProcessor;
@@ -77,7 +74,7 @@ public abstract class Telemetry {
     return map;
   }
 
-  public HashMap<String, Pellet> getPellets() {
+  public PointMap<Pellet> getPellets() {
     return pellets;
   }
 
@@ -123,7 +120,7 @@ public abstract class Telemetry {
       Entity[] agents,
       Map m,
       ResourceLoader resourceLoader,
-      HashMap<String, Pellet> pellets,
+      PointMap<Pellet> pellets,
       HashMap<UUID, PowerUp> activePowerUps) {
 
     Set<String> physicsBatch = new HashSet<>();
@@ -169,6 +166,7 @@ public abstract class Telemetry {
       p.incrementRespawn();
     }
 
+
     ArrayList<UUID> toRemove = new ArrayList<>();
     for (PowerUp p : activePowerUps.values()) {
       if (p.incrementTime()) {
@@ -193,6 +191,7 @@ public abstract class Telemetry {
       System.out.println("Player " + winner + " won the game");
       System.out.println("Player " + winner + " won the game");
       System.out.println("Player " + winner + " won the game");
+      client.finishGame();
     }
 
     return physicsBatch;
@@ -202,14 +201,14 @@ public abstract class Telemetry {
 
   void initialisePellets() {
     Random r = new Random();
-    pellets = new HashMap<>();
+    pellets = new PointMap<>(map);
     for (int i = 0; i < map.getMaxX(); i++) {
       for (int j = 0; j < map.getMaxY(); j++) {
         Point point = new Point(i + 0.5, j + 0.5);
         if (!map.isWall(point)) {
           Pellet pellet = r.nextInt(30) == 1 ? new PowerUpBox(point) : new Pellet(point);
           pellet.updateImages(resourceLoader);
-          pellets.put(i + "," + j, pellet);
+          pellets.put(new Point(i, j), pellet);
         }
       }
     }
@@ -266,12 +265,10 @@ public abstract class Telemetry {
    * @author Matthew Jones Alex Banks
    */
   private static void pelletCollision(
-      Entity[] agents, HashMap<String, Pellet> pellets, Set<String> physBatch, HashMap<UUID, PowerUp> activePowerUps) {
+      Entity[] agents, PointMap<Pellet> pellets, Set<String> physBatch, HashMap<UUID, PowerUp> activePowerUps) {
     for (Entity agent : agents) {
       Point p = agent.getLocation();
-      int x = (int) p.getX();
-      int y = (int) p.getY();
-      Pellet pellet = pellets.get(x + "," + y);
+      Pellet pellet = pellets.get(p);
       if (pellet != null) {
         if (pellet.interact(agent, agents, activePowerUps)) {
           physBatch.add(

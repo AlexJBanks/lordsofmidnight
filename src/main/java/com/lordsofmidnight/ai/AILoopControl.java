@@ -15,7 +15,6 @@ import com.lordsofmidnight.objects.powerUps.PowerUp;
 import com.lordsofmidnight.utils.Input;
 import com.lordsofmidnight.utils.Methods;
 import com.lordsofmidnight.utils.enums.Direction;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.ArrayList;
 import java.util.Random;
@@ -29,22 +28,25 @@ import java.util.concurrent.BlockingQueue;
  */
 public class AILoopControl extends Thread {
 
-    private static final boolean DEBUG = false;
-    private int counter = 0;
+    //private static final boolean DEBUG = false;
 
+    private static final int POWER_UP_USE_PROBABILITY = 10;
+    private static final int SPEED_POWER_UP_ACTIVATE_DEPTH = 20;
     private static final int INVINCIBILITY_AVOID_DISTANCE = 20;
     private static final int INVINCIBILITY_PREFER_MULTIPLIER = 2;
     private static final int OPPOSITE_DIRECTION_DIVISOR = 4;
     private static final long SLEEP_TIME = 1;
+
     private final Entity[] controlAgents;
     private final PointSet junctions;
     private final PointMap<PointSet> edges;
     private final BlockingQueue<Input> directionsOut;
     private final Map map;
     private final Entity[] gameAgents;
+    private final PointMap<Pellet> pellets;
+
     private boolean runAILoop;
     private int mipsmanID;
-    private HashMap<String, Pellet> pellets;
 
 
     /**Initialises the object prior to the AI loop being executed.
@@ -57,13 +59,8 @@ public class AILoopControl extends Thread {
      * @throws IllegalStateException The control ID does not match an agent main ID.
      * @author Lewis Ackroyd*/
     public AILoopControl(
-            Entity[] gameAgents, int[] controlIds, Map map, BlockingQueue<Input> directionsOut, HashMap<String, Pellet> pellets) {
+            Entity[] gameAgents, int[] controlIds, Map map, BlockingQueue<Input> directionsOut, PointMap<Pellet> pellets) {
         validateAgents(gameAgents);
-        if (DEBUG) {
-            for (int i : controlIds) {
-                System.out.println("ID: " + i);
-            }
-        }
         this.setDaemon(true);
         this.runAILoop = true;
         this.gameAgents = gameAgents;
@@ -77,6 +74,60 @@ public class AILoopControl extends Thread {
         generateRouteFinders();
         correctMipsmanRouteFinder();
         assignControlEntities(controlIds);
+    }
+
+    @Override
+    public void run() {
+        System.out.println("Starting AI loop...");
+
+        while (runAILoop && controlAgents.length > 0) {
+            for (Entity ent : controlAgents) {
+                Point currentLocation = ent.getLocation().getCopy();
+                Point currentGridLocation = currentLocation.getGridCoord();
+                if (currentLocation.isCentered()) {
+                    boolean atLastCoord = atPreviousCoordinate(ent, currentGridLocation);
+                    if (!ent.getDirection().isMovementDirection()
+                            || !Methods.validateDirection(ent.getDirection(), currentLocation, map) || (
+                            junctions.contains(currentGridLocation) && !atLastCoord)) {
+                        if (atLastCoord) {
+                            Point nearestJunction = Mapping.findNearestJunction(currentLocation, map, junctions);
+                            Direction dir;
+                            if (!nearestJunction.equals(currentGridLocation)) {
+                                dir = Mapping.directionBetweenPoints(currentLocation, nearestJunction);
+                            } else {
+                                dir =
+                                        new RandomRouteFinder()
+                                                .getRoute(currentLocation,
+                                                        gameAgents[mipsmanID].getLocation());
+                            }
+                            dir = confirmOrReplaceDirection(ent.getDirection(), currentLocation, dir);
+                            setDirection(dir, ent);
+
+                        } else {
+                            ent.setLastGridCoord(currentGridLocation);
+                            if (junctions.contains(currentGridLocation)) {
+                                executeRoute(ent, currentLocation);
+                            }
+                        }
+                    }
+                }
+                processPowerUps(ent, currentGridLocation);
+            }
+
+            correctMipsmanRouteFinder();
+
+            try {
+                Thread.sleep(SLEEP_TIME);
+            } catch (InterruptedException e) {
+                runAILoop = false;
+            }
+        }
+        System.out.println("AI safely terminated.");
+    }
+
+    public boolean killAI() {
+        runAILoop = false;
+        return isAlive();
     }
 
     /**Checks that the entities given to the AI all have unique IDs and that only one is mipsman.
@@ -110,7 +161,7 @@ public class AILoopControl extends Thread {
             RouteFinder routeFinder;
             switch (i) {
                 case 0: {
-                    routeFinder = new MipsManRouteFinder(pellets, gameAgents);
+                    routeFinder = new MipsManRouteFinder(pellets, gameAgents, map);
                     break;
                 }
                 case 1: {
@@ -122,7 +173,7 @@ public class AILoopControl extends Thread {
                     break;
                 }
                 case 3: {
-                    routeFinder = new PowerPelletPatrolRouteFinder();
+                    routeFinder = new PowerPelletPatrolRouteFinder(map, pellets);
                     break;
                 }
                 default: {
@@ -174,55 +225,6 @@ public class AILoopControl extends Thread {
         }
     }
 
-    @Override
-    public void run() {
-        System.out.println("Starting AI loop...");
-
-        while (runAILoop && controlAgents.length > 0) {
-            for (Entity ent : controlAgents) {
-                Point currentLocation = ent.getLocation().getCopy();
-                Point currentGridLocation = currentLocation.getGridCoord();
-                if (currentLocation.isCentered()) {
-                  boolean atLastCoord = atPreviousCoordinate(ent, currentGridLocation);
-                    if (!ent.getDirection().isMovementDirection()
-                        || !Methods.validateDirection(ent.getDirection(), currentLocation, map) || (
-                        junctions.contains(currentGridLocation) && !atLastCoord)) {
-                      if (atLastCoord) {
-                            Point nearestJunction = Mapping.findNearestJunction(currentLocation, map, junctions);
-                            Direction dir;
-                            if (!nearestJunction.equals(currentGridLocation)) {
-                                dir = Mapping.directionBetweenPoints(currentLocation, nearestJunction);
-                            } else {
-                                dir =
-                                    new RandomRouteFinder()
-                                        .getRoute(currentLocation,
-                                            gameAgents[mipsmanID].getLocation());
-                            }
-                            dir = confirmOrReplaceDirection(ent.getDirection(), currentLocation, dir);
-                            setDirection(dir, ent);
-
-                        } else {
-                            ent.setLastGridCoord(currentGridLocation);
-                            if (junctions.contains(currentGridLocation)) {
-                                executeRoute(ent, currentLocation);
-                            }
-                        }
-                    }
-                }
-                //processPowerUps(ent);
-            }
-
-            correctMipsmanRouteFinder();
-
-            try {
-                Thread.sleep(SLEEP_TIME);
-            } catch (InterruptedException e) {
-                runAILoop = false;
-            }
-        }
-        System.out.println("AI safely terminated.");
-    }
-
     private void executeRoute(Entity ent, Point currentLocation) {
         RouteFinder r = ent.getRouteFinder();
         Point mipsManLoc = gameAgents[mipsmanID].getLocation();
@@ -233,22 +235,15 @@ public class AILoopControl extends Thread {
     }
 
     private Direction accountForPowerUps(Point position, Direction direction) {
-        Direction previousDirection = direction;
         direction = invincibilityAdjust(position, direction);
         return direction;
     }
 
     private Direction invincibilityAdjust(Point position, Direction direction) {
         class InvincibleAgentCondition implements ConditionalInterface {
-            private final Entity[] agents;
-
-            public InvincibleAgentCondition(Entity[] agents) {
-                this.agents = agents;
-            }
-
             @Override
             public boolean condition(Point position) {
-                for (Entity ent : agents) {
+                for (Entity ent : gameAgents) {
                     if (ent.getLocation().getGridCoord().equals(position.getGridCoord())) {
                         if (ent.isInvincible()) {
                             return true;
@@ -258,7 +253,7 @@ public class AILoopControl extends Thread {
                 return false;
             }
         }
-        int[] directionValues = new SampleSearch(INVINCIBILITY_AVOID_DISTANCE, map).getDirectionCounts(position, new InvincibleAgentCondition(gameAgents));
+        int[] directionValues = new SampleSearch(INVINCIBILITY_AVOID_DISTANCE, map).getDirectionCounts(position, new InvincibleAgentCondition());
         Random r = new Random();
         int total = 0;
         for (int i : directionValues) { total += i; }
@@ -299,11 +294,39 @@ public class AILoopControl extends Thread {
         return validDirections.get(val);
     }
 
-    private void processPowerUps(Entity ent) {
+    private void processPowerUps(Entity ent, Point currentLocation) {
         List<PowerUp> powerUpList = ent.getItems();
         if (!powerUpList.isEmpty()&&!ent.isPowerUpUsed()) {
-            ent.setPowerUpUsedFlag(true);
-            setDirection(Direction.USE, ent);
+            Random r = new Random();
+            if (r.nextInt(POWER_UP_USE_PROBABILITY)<ent.powerUpUseAttempts()) {
+                ent.setPowerUpUsedFlag(true);
+                setDirection(Direction.USE, ent);
+            }
+            else {
+                try {
+                    if (powerUpList.get(0).getType() == com.lordsofmidnight.utils.enums.PowerUp.SPEED) {
+                        class MipsmanProximityCondition implements ConditionalInterface {
+                            @Override
+                            public boolean condition(Point position) {
+                                return position.equals(gameAgents[mipsmanID].getLocation());
+                            }
+                        }
+                        SampleSearch sampleSearch = new SampleSearch(SPEED_POWER_UP_ACTIVATE_DEPTH, map);
+                        int[] mipsmanProximities = sampleSearch.getDirectionCounts(currentLocation, new MipsmanProximityCondition());
+                        for (int i : mipsmanProximities) {
+                            if (i > 0) {
+                                ent.setPowerUpUsedFlag(true);
+                                setDirection(Direction.USE, ent);
+                                break;
+                            }
+                        }
+                    }
+                    if (!ent.isPowerUpUsed()) {
+                        ent.incrementPowerUpUseChance();
+                    }
+                }
+                catch (NullPointerException e) {} //PowerUp removed whilst processing. Skip this cycle
+            }
         }
     }
 
@@ -312,9 +335,6 @@ public class AILoopControl extends Thread {
             return;
         }
         if(direction!=ent.getDirection()&&!ent.isDirectionSet()){
-            if (DEBUG) {
-                System.out.println(counter++ + " " + direction + " " + ent.getClientId() + " " + ent.getLastGridCoord() + " " + ent.getLocation());
-            }
             ent.setDirectionSetFlag(true);
             directionsOut.add(new Input(ent.getClientId(), direction));
         }
@@ -331,10 +351,6 @@ public class AILoopControl extends Thread {
         ArrayList<Direction> validDirections = getValidDirections(currentLocation, map);
         Random r = new Random();
         if (validDirections.size()<=0) {
-            if (DEBUG) {
-                System.err.println("NO VALID DIRECTIONS");
-                System.err.println(currentLocation);
-            }
             return null;
         }
         if (!Methods.validateDirection(dir, currentLocation, map)) {
@@ -356,11 +372,6 @@ public class AILoopControl extends Thread {
             throw new IllegalStateException("ERROR");
         }
         return dir;
-    }
-
-    public boolean killAI() {
-        runAILoop = false;
-        return isAlive();
     }
 
     private static final ArrayList<Direction> getValidDirections(Point p, Map map) {
